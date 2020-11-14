@@ -4,13 +4,19 @@
   "http://struts.apache.org/dtds/struts-2.0.dtd">
 <struts>
 
-  <include file="dhis-web-commons.xml" />
+    <include file="dhis-web-commons.xml" />
 
-  <package name="dhis-web-apps" extends="dhis-web-commons" namespace="/dhis-web-apps">
-    <action name="index" class="org.hisp.dhis.commons.action.NoAction">
-      <result name="success" type="redirect">index.html</result>
-    </action>
-  </package>
+    <package name="dhis-web-apps" extends="dhis-web-commons" namespace="/dhis-web-apps">
+        <action name="index" class="org.hisp.dhis.commons.action.NoAction">
+            <result name="success" type="redirect">index.html</result>
+        </action>
+    </package>
+  
+    <package name="dhis-web-art" extends="dhis-web-commons" namespace="/dhis-web-art">
+        <action name="index" class="org.hisp.dhis.commons.action.NoAction">
+            <result name="success" type="redirect">index.html</result>
+        </action>
+    </package>
 
   <!-- INJECT BUNDLED APPS HERE -->
 </struts>

@@ -1,0 +1,49 @@
+<div ng-if="model.selectedProgram.id && selectedOrgUnit.id" class="vertical-spacing">
+    
+    <div ng-if="model.arts.length > 0 && !model.editArt">    
+        <div class="row">
+            <div class="col-sm-12">
+                <table class="table table-bordered table-striped dhis2-table-hover">
+                    <thead>
+                        <tr>
+                            <th class="vertical-center" ng-repeat="header in model.artHeaders">
+                                {{header.displayName}}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="art in model.arts">
+                            <td class="vertical-center" 
+                                ng-repeat="header in model.artHeaders"
+                                ng-click="editArt(art)"
+                                ng-attr-title="{{'show_details'| translate}}">
+                                {{art.attributeValues[header.id]}}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert alert-warning" ng-if="model.arts.length === 0 && !model.editArt">
+        {{'no_arts_available' | translate}}
+    </div>
+    
+    <div ng-if="model.editArt">
+        Test 
+        Test
+        Test
+        <div class="row bottomright">
+            <div class="col-sm-12">
+                <button type="button"
+                        class="btn btn-info"
+                        ng-click="cancelEdit()">
+                    {{'display_report'| translate}}
+                </button>
+            </div>
+        </div>
+    </div>
+    
+</div>
+
