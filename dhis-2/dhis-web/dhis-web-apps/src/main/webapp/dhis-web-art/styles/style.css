@@ -1,4 +1,4 @@
-html, body { 
+html, body {
     height:100%;
     margin: 0;
     padding: 0;
@@ -45,7 +45,7 @@ html, body {
 
     #header, #leftBar, .hideInPrint {
         display: none !important;
-    }    
+    }
 
     .select2-arrow, .ui-select-toggle {
         display: none !important;
@@ -64,6 +64,10 @@ html, body {
     height: 500px !important;
 }
 
+#orgUnitTree a {
+    cursor: pointer !important;
+}
+
 .menu-title  {
     margin: 8px;
 }
@@ -73,7 +77,7 @@ html, body {
 }
 
 .vertical-spacing {
-    margin-top: 20px;    
+    margin-top: 20px;
 }
 
 .vertical-center {
@@ -103,19 +107,19 @@ html, body {
     padding: 5px;
 }
 
-.font-18 {    
+.font-18 {
     font-size: 18px !important;
 }
 
-.font-16 {    
+.font-16 {
     font-size: 16px !important;
 }
 
-.font-14 {    
+.font-14 {
     font-size: 14px !important;
 }
 
-.font-12 {    
+.font-12 {
     font-size: 12px !important;
 }
 
@@ -136,11 +140,15 @@ html, body {
 }
 
 .small-horizontal-spacing{
-    margin-left: 5px;    
+    margin-left: 5px;
+}
+
+.remove-default-padding{
+    margin-left: -12px;
 }
 
 .horizontal-spacing {
-    margin-right: 20px;    
+    margin-right: 20px;
 }
 
 .small-vertical-spacing{
@@ -151,10 +159,18 @@ html, body {
     margin-top: 20px;
 }
 
-.selection-group{
+.selection-group {
     margin: 0 auto;
     display: flex;
     color: #000;
+}
+
+.art-edit-area {
+    border: 1px solid #BBD1EE;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-radius: 10px;
+    margin-bottom: 10px;
 }
 
 .green-info-area {
@@ -199,7 +215,7 @@ html, body {
 }
 
 .multiSelectAvailable option,
-.multiSelectSelected option {    
+.multiSelectSelected option {
     padding: 5px;
     line-height: 1.428571429;
     font-size: 14px;
@@ -217,7 +233,7 @@ html, body {
 }
 
 .form-control-ui-select {
-    width:100%;     
+    width:100%;
     padding: 20px 6px;
     border-radius: 4px;
 }
@@ -227,7 +243,7 @@ html, body {
     color: #555 !important;
 }
 
-.form-control{    
+.form-control{
     padding: 5px !important;
     color: #555 !important;
 }
@@ -270,4 +286,14 @@ html, body {
 .trimmed-group-btn {
     border-radius: 4px !important;
     line-height: 1.4em;
+}
+
+.bordered-div {
+    border: 1px solid #ddd;
+    padding: 5px;
+    border-radius: 10px;
+}
+
+.cursor-pointer {
+    cursor: pointer !important;
 }

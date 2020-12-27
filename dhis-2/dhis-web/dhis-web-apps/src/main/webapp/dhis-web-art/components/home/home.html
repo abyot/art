@@ -4,31 +4,35 @@
 
 <div id="leftBar">
 
-    <d2-left-bar></d2-left-bar>
-    
-    <div class="input-group large-vertical-spacing">
-        <input type="text" id="searchField" name="key" class="form-control" placeholder="{{'search' | translate}}">
-        <span class="input-group-btn">
-            <button class="btn btn-primary" type="button" onclick="selection.findByName()">{{'go' | translate}}</button>
-        </span>
-    </div>
-    
-
-    <div id="orgUnitTree">
-        <ul>
-        </ul>
+    <div class="row">
+        <div class="col-sm-12 remove-default-padding"><d2-left-bar></d2-left-bar></div>
     </div>
 
-    <img id="ouwt_loader" src="../images/ajax-loader-bar.gif" alt="{{'in_progress'| translate}}"/>
+    <div class="row">
+        <div class="col-sm-12 input-group large-vertical-spacing">
+            <input type="text" id="searchField" name="key" class="form-control" placeholder="{{'search' | translate}}">
+            <span class="input-group-btn">
+                <button class="btn btn-primary" type="button" onclick="selection.findByName()">{{'go' | translate}}</button>
+            </span>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-sm-12" id="orgUnitTree">
+            <ul>
+            </ul>
+        </div>
+        <img id="ouwt_loader" src="../images/ajax-loader-bar.gif" alt="{{'in_progress'| translate}}"/>
+    </div>
 
 </div>
 
 
 <div class="page" id="mainPage">
     <input type="text" class="form-control" selected-org-unit ng-hide="true" ng-model="selectedOrgUnit.displayName" value="{{selectedOrgUnit.displayName|| pleaseSelectLabel}}" disabled="">
-    
+
     <h3>{{'art' | translate}}</h3>
-    
+
     <div ng-if="!selectedOrgUnit" class="font-16">
         <img src="../images/ajax-loader-bar.gif" alt="{{'in_progress'| translate}}"/><br>
         {{'loading_metadata'| translate}}
@@ -36,8 +40,9 @@
 
     <div ng-show="selectedOrgUnit" class="row">
         <div class="col-sm-4">
-            <ui-select ng-model="model.selectedProgram" 
-                    theme="select2"                                 
+            <ui-select ng-model="model.selectedProgram"
+                    theme="select2"
+                    ng-disabled="isOnAddEditMode()"
                     style="width:100%;">
                 <ui-select-match allow-clear="true" class="form-control-ui-select" placeholder="{{model.programs && model.programs.length > 0 ? 'select_tracking_program' : 'empty'| translate}}">{{$select.selected.displayName|| $select.selected}}</ui-select-match>
                 <ui-select-choices repeat="program in model.programs | filter: $select.search | limitTo:maxOptionSize | orderBy: 'displayName' ">
@@ -45,27 +50,27 @@
                 </ui-select-choices>
             </ui-select>
         </div>
-        <div class="col-sm-2">
+        <div class="col-sm-4">
             <button type="button"
                     class="btn btn-primary"
-                    ng-disabled="!model.selectedProgram || !selectedOrgUnit"
-                    ng-click="addArt()">
+                    ng-disabled="!model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
+                    ng-click="showAddArt()">
                 {{'add_new'| translate}}
             </button>
             <button type="button"
                     class="btn btn-success horizontal-spacing"
-                    ng-disabled="!model.selectedProgram || !selectedOrgUnit"
-                    ng-click="importArt()">
+                    ng-disabled="!model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
+                    ng-click="showImportArt()">
                 {{'import'| translate}}
             </button>
         </div>
     </div>
-    
-    <div ng-show="selectedOrgUnit">        
-        
+
+    <div ng-show="selectedOrgUnit">
+
         <!-- form begins -->
-        <form name="outerForm" novalidate>        
-            <div ng-include="'components/home/art-list.html'"></div>
+        <form name="outerForm" novalidate autocomplete="off">
+            <div ng-include="'components/home/art-forms.html'"></div>
         </form>
         <!-- form ends -->
 
