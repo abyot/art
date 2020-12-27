@@ -53,15 +53,21 @@
         <div class="col-sm-4">
             <button type="button"
                     class="btn btn-primary"
-                    ng-disabled="!model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
+                    ng-disabled="addOrEditArtDenied() || !model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
                     ng-click="showAddArt()">
                 {{'add_new'| translate}}
             </button>
             <button type="button"
-                    class="btn btn-success horizontal-spacing"
-                    ng-disabled="!model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
+                    class="btn btn-success"
+                    ng-disabled="addOrEditArtDenied() || !model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
                     ng-click="showImportArt()">
                 {{'import'| translate}}
+            </button>
+            <button type="button"
+                    class="btn btn-warning"
+                    ng-hide="!isOnAddEditMode()"
+                    ng-click="cancelEdit()">
+                {{'back_list'| translate}}
             </button>
         </div>
     </div>

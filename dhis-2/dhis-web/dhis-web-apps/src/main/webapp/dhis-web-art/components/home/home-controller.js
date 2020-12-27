@@ -18,6 +18,8 @@ art.controller('HomeController',
         optionSets: null,
         trackedEntityAttributes: null,
         dataElementsById: null,
+        selectedProgram: null,
+        trackedEntityAccess: false,
         selectedStage: null,
         selectedEvent: null,
         events: [],
@@ -27,7 +29,8 @@ art.controller('HomeController',
         artHeaders: [],
         showEditArt: false,
         showAddArt: false,
-        showImportArt: false
+        showImportArt: false,
+        editProfile: false
     };
 
     //watch for selection of org unit from tree
@@ -47,8 +50,6 @@ art.controller('HomeController',
                         angular.forEach(des, function(de){
                             $scope.model.dataElementsById[de.id] = de;
                         });
-
-                        console.log('dataElementsById:  ', $scope.model.dataElementsById);
 
                         $scope.model.trackedEntityAttributes = [];
                         MetaDataFactory.getAll('trackedEntityAttributes').then(function(teis){
@@ -86,6 +87,7 @@ art.controller('HomeController',
     //load programs associated with the selected org unit.
     $scope.loadPrograms = function() {
         $scope.model.programs = [];
+        $scope.model.trackedEntityAccess = false;
         $scope.model.selectedProgramStage = null;
         $scope.model.selectedOptionSet = null;
         $scope.model.documents = [];
@@ -102,6 +104,7 @@ art.controller('HomeController',
         if( $scope.model.selectedProgram && $scope.model.selectedProgram.id && $scope.model.selectedProgram.programStages.length > 0){
             $scope.model.artHeaders = [];
             $scope.model.programStageDataElements = null;
+            $scope.model.trackedEntityAccess =  CommonUtils.userHasWriteAccess( 'ACCESSIBLE_TRACKEDENTITYTYPE', $scope.model.selectedProgram.trackedEntityType.id);
             angular.forEach($scope.model.selectedProgram.programTrackedEntityAttributes, function(pat){
                 if( pat.displayInList && pat.trackedEntityAttribute && pat.trackedEntityAttribute.id ){
                     var tea = $scope.model.trackedEntityAttributes[pat.trackedEntityAttribute.id];
@@ -163,7 +166,7 @@ art.controller('HomeController',
             }
         });
 
-        ArtService.save(tei).then(function(data){
+        ArtService.add(tei).then(function(data){
             if( data.response.importSummaries[0].status==='ERROR' ){
                 NotificationService.showNotifcationDialog($translate.instant("error"), $translate.instant("art_add_failed") + data.response.importSummaries[0] );
                 return;
@@ -177,7 +180,8 @@ art.controller('HomeController',
 
     $scope.showEditArt = function(art){
         $scope.model.displayEditArt = true;
-        $scope.model.art = art;
+        $scope.model.art = angular.copy(art);
+        $scope.model.originalArt = angular.copy(art);
         $scope.model.selectedStage = $scope.model.selectedProgram.programStages[0];
     };
 
@@ -188,8 +192,7 @@ art.controller('HomeController',
             return false;
         }
 
-        console.log('art to save:  ', $scope.model.art);
-        /*var tei = {
+        var tei = {
             trackedEntityType: $scope.model.art.trackedEntityType,
             trackedEntityInstance: $scope.model.art.trackedEntityInstance,
             orgUnit: $scope.model.art.orgUnit,
@@ -219,9 +222,9 @@ art.controller('HomeController',
             }
         });
 
-        ArtService.save(tei).then(function(data){
-            if( data.response.importSummaries[0].status==='ERROR' ){
-                NotificationService.showNotifcationDialog($translate.instant("error"), $translate.instant("art_add_failed") + data.response.importSummaries[0] );
+        ArtService.update(tei, $scope.model.selectedProgram.id).then(function(data){
+            if( data.response.status==='ERROR' ){
+                NotificationService.showNotifcationDialog($translate.instant("error"), $translate.instant("operation_failed") + data.response.description );
                 return;
             }
             else{
@@ -240,8 +243,8 @@ art.controller('HomeController',
                     $scope.model.arts.splice(0,0,art);
                 }
             }
-            $scope.cancelEdit();
-        });*/
+            $scope.showEditProfile();
+        });
     };
 
     $scope.setSelectedStage = function( stage ){
@@ -277,11 +280,28 @@ art.controller('HomeController',
         $scope.model.art = {};
     };
 
+    $scope.showEditProfile = function(){
+        $scope.model.editProfile = !$scope.model.editProfile;
+    };
+
+    $scope.cancelEditProfile = function(){
+        $scope.model.art = $scope.model.originalArt;
+        $scope.model.editProfile = false;
+    };
+
     $scope.reset= function(){
         $scope.model.selectedProgram = null;
         $scope.model.artHeaders = [];
         $scope.model.arts = [];
         $scope.model.art = {};
+    };
+
+    $scope.addOrEditArtDenied = function(){
+        return !$scope.model.trackedEntityAccess;
+    };
+
+    $scope.addOrEditStatusDenied = function(){
+        return false;
     };
 
 });

@@ -293,11 +293,21 @@ var artServices = angular.module('artServices', ['ngResource'])
             }
             return promise;
         },
-        save: function( art ){
+        add: function( art ){
             var promise = $http.post(DHIS2URL + '/trackedEntityInstances.json?strategy=SYNC', art).then(function (response) {
                 return response.data;
             } ,function(error) {
-                return null;
+                return error.data;
+            });
+            return promise;
+        },
+        update: function( art, programId ){
+            var programFilter = programId ? "?program=" + programId : "";
+            var promise = $http.put(DHIS2URL + '/trackedEntityInstances/' + art.trackedEntityInstance + programFilter, art).then(function (response) {
+                return response.data;
+            } ,function(error) {
+                console.log('error:  ', error);
+                return error.data;
             });
             return promise;
         }

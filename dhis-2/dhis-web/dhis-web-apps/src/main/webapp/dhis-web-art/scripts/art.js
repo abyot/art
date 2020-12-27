@@ -139,6 +139,7 @@ function downloadMetaData()
     promise = promise.then( dhis2.art.store.open );
     promise = promise.then( getUserProfile );
     promise = promise.then( getUserAccessiblePrograms );
+    promise = promise.then( getUserAccessibleTrackedEntityTypes );
     promise = promise.then( getOrgUnitLevels );
     promise = promise.then( getSystemSetting );
 
@@ -181,6 +182,11 @@ function getUserProfile(){
 function getUserAccessiblePrograms()
 {
     return dhis2.metadata.getMetaObject(null, 'ACCESSIBLE_PROGRAMS', dhis2.art.apiUrl + '/programs.json', 'fields=id,access[data[write]]&paging=false', 'sessionStorage', dhis2.art.store);
+}
+
+function getUserAccessibleTrackedEntityTypes()
+{
+    return dhis2.metadata.getMetaObject(null, 'ACCESSIBLE_TRACKEDENTITYTYPE', dhis2.art.apiUrl + '/trackedEntityTypes.json', 'fields=id,access[data[write]]&paging=false', 'sessionStorage', dhis2.art.store);
 }
 
 function getOrgUnitLevels(){
