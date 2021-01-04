@@ -173,6 +173,21 @@ html, body {
     margin-bottom: 10px;
 }
 
+.green {
+    background-color: #19d219 !important;
+    max-width: 15px !important;
+}
+
+.yellow {
+    background-color: yellow !important;
+    max-width: 15px !important;
+}
+
+.red {
+    background-color: red !important;
+    max-width: 15px !important;
+}
+
 .green-info-area {
     border: 1px solid #a4d2a3;
     background-color: #d0eBd0;
@@ -283,6 +298,31 @@ html, body {
     margin-bottom: 20px;
 }
 
+.btn-file {
+    position: relative;
+    overflow: hidden;
+}
+.btn-file input[type=file] {
+    position: absolute;
+    top: 0;
+    right: 0;
+    min-width: 100%;
+    min-height: 100%;
+    font-size: 100px;
+    text-align: right;
+    filter: alpha(opacity=0);
+    opacity: 0;
+    outline: none;
+    background: white;
+    cursor: inherit;
+    display: block;
+}
+
+.trim {
+    margin-bottom: 5px;
+    margin-top: 5px;
+}
+
 .trimmed-group-btn {
     border-radius: 4px !important;
     line-height: 1.4em;
@@ -296,4 +336,12 @@ html, body {
 
 .cursor-pointer {
     cursor: pointer !important;
+}
+
+.small-bottom-margin {
+    margin-bottom: 5px !important;
+}
+
+.small-pading {
+    padding: 5px !important;
 }

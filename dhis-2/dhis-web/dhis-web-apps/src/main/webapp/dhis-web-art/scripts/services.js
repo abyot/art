@@ -245,7 +245,7 @@ var artServices = angular.module('artServices', ['ngResource'])
             });
             return promise;
         },
-        getByProgramAndOu: function( program, orgUnit, attributesById, optionSetsById ){
+        getByProgramAndOu: function( program, orgUnit, attributesById, dataElementsById, optionSetsById ){
             var promise;
             if( program.id && orgUnit.id ){
                 promise = $http.get(DHIS2URL + '/trackedEntityInstances.json?fields=*&order=created:desc&pageSize=50&page=1&totalPages=false&ouMode=SELECTED&ou=' + orgUnit.id + '&program=' + program.id).then(function (response) {
@@ -269,6 +269,16 @@ var artServices = angular.module('artServices', ['ngResource'])
                             var events = tei.enrollments[0].events;
                             if ( events.length > 0 ){
                                 angular.forEach(events, function(ev){
+                                    ev.values = {};
+                                    ev.eventDate = DateUtils.formatFromApiToUser(ev.eventDate);
+                                    angular.forEach(ev.dataValues, function(dv){
+                                        var val = dv.value;
+                                        var de = attributesById[dv.dataElement];
+                                        if( de && de.optionSetValue ){
+                                            val = CommonUtils.formatDataValue(ev, val, de, optionSetsById, 'USER');
+                                        }
+                                        ev.values[dv.dataElement] = val;
+                                    })
                                     if( !tei.recommendationStatus[ev.programStage] ){
                                         tei.recommendationStatus[ev.programStage] = ev;
                                     }
@@ -306,7 +316,6 @@ var artServices = angular.module('artServices', ['ngResource'])
             var promise = $http.put(DHIS2URL + '/trackedEntityInstances/' + art.trackedEntityInstance + programFilter, art).then(function (response) {
                 return response.data;
             } ,function(error) {
-                console.log('error:  ', error);
                 return error.data;
             });
             return promise;
@@ -359,6 +368,91 @@ var artServices = angular.module('artServices', ['ngResource'])
                 });
             }
             return orgUnitPromise;
+        }
+    };
+})
+
+.service('ExcelService', function($q, $rootScope){
+    return {
+        load: function(file){
+
+            var promise = $q(function(resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    var data = reader.result;
+                    console.log('the data:  ', data);
+                    var workbook = XLSX.read(data, {
+                        type: 'binary'
+                    });
+                    var sheetNames = workbook.SheetNames;
+                    var worksheet = workbook.Sheets[sheetNames[0]];
+                    var workbook = XLSX.utils.sheet_to_json(worksheet);
+                    resolve(workbook);
+                };
+                reader.onerror = function (ex) {
+                    reject(ex);
+                };
+                reader.readAsArrayBuffer(file);
+            });
+            return promise;
+
+            /*var def = $q.defer();
+            XLSXReader(file, true, true, function(data) {
+                $rootScope.$apply(function() {
+                    def.resolve(data);
+                });
+            });
+
+            return def.promise;*/
+        },
+        parse: function( workbook, sheet ){
+            /*var xlsReader = function( file ){
+                return new Promise((resolve, reject) => {
+                    var reader = new FileReader();
+                    reader.onload = res => {
+                        var data = res.target.result;
+                        var workbook = XLSX.read(data, {type: 'binary'});
+                        var parsedData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                        resolve(parsedData);
+                    };
+                    reader.onerror = err => reject(err);
+
+                    reader.readAsBinaryString(file);
+                });
+            };
+
+            var promise = xlsReader( file );
+            promise.then(function( result ){
+                return result;
+            });
+            return promise;*/
+            console.log('workbook:  ', workbook);
+            console.log('sheets:  ', sheet);
+            return XLSX.utils.sheet_to_json(workbook.Sheets[sheet], {raw: true, defval:null});
+        },
+        load: function( file ){
+
+            var xlsReader = function( file ){
+                return new Promise((resolve, reject) => {
+                    var reader = new FileReader();
+                    reader.onload = res => {
+                        var data = res.target.result;
+                        var workbook = XLSX.read(data, {type: 'binary'});
+                        //var parsedData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                        //resolve(parsedData);
+                        resolve( workbook );
+                    };
+                    reader.onerror = err => reject(err);
+
+                    reader.readAsBinaryString(file);
+                });
+            };
+
+            var promise = xlsReader( file );
+            promise.then(function( result ){
+                return result;
+            });
+            return promise;
         }
     };
 })

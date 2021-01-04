@@ -10,7 +10,7 @@
             </thead>
             <thead>
                 <tr>
-                    <th class="vertical-center" ng-repeat="header in model.artHeaders">
+                    <th class="vertical-center" ng-repeat="header in model.artHeaders" ng-if="header.displayInList">
                         {{header.displayName}}
                     </th>
                 </tr>
@@ -19,6 +19,7 @@
                 <tr ng-repeat="art in model.arts">
                     <td class="vertical-center"
                         ng-repeat="header in model.artHeaders"
+                        ng-if="header.displayInList"
                         ng-click="showEditArt(art)"
                         ng-attr-title="{{'show_details'| translate}}">
                         {{art.attributeValues[header.id]}}

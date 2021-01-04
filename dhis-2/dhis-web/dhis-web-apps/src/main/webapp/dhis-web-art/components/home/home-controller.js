@@ -5,6 +5,7 @@
 //Controller for settings page
 art.controller('HomeController',
         function($scope,
+                $timeout,
                 $translate,
                 NotificationService,
                 SessionStorageService,
@@ -12,6 +13,7 @@ art.controller('HomeController',
                 ProgramFactory,
                 MetaDataFactory,
                 DateUtils,
+                ExcelService,
                 CommonUtils) {
 
     $scope.model = {
@@ -30,7 +32,16 @@ art.controller('HomeController',
         showEditArt: false,
         showAddArt: false,
         showImportArt: false,
-        editProfile: false
+        editProfile: false,
+        inputFile: null,
+        excelData: null,
+        excelRows: [],
+        excelColumns: [],
+        selectedSheet: null,
+        parsingStarted: false,
+        parsingFinished: true,
+        columnObjectMap: {},
+        cellValidity: []
     };
 
     //watch for selection of org unit from tree
@@ -73,9 +84,6 @@ art.controller('HomeController',
 
     //watch for selection of program
     $scope.$watch('model.selectedProgram', function() {
-        $scope.model.selectedProgramStage = null;
-        $scope.model.selectedOptionSet = null;
-        $scope.model.documents = [];
         if( angular.isObject($scope.model.selectedProgram) && $scope.model.selectedProgram.id){
             $scope.loadProgramDetails();
         }
@@ -84,13 +92,52 @@ art.controller('HomeController',
         }
     });
 
+    $scope.$watch('model.inputFile', function(){
+        $scope.model.excelData = null;
+        $scope.model.excelRows = [];
+        $scope.model.excelColumns = [];
+        if( angular.isObject($scope.model.inputFile) && $scope.model.inputFile[0]){
+            ExcelService.load($scope.model.inputFile[0]).then(function(result) {
+                $scope.model.excelData = result;
+                $scope.$apply(function(){});
+            });
+        }
+    });
+
+    $scope.$watch('model.selectedSheet', function() {
+        if( $scope.model.selectedSheet ){
+            $scope.model.parsingStarted = true;
+            $scope.model.parsingFinished = false;
+            $scope.model.excelRows = [];
+            $scope.model.excelColumns = [];
+
+            $timeout(function() {
+                var result = ExcelService.parse( $scope.model.excelData, $scope.model.selectedSheet);
+                $scope.model.excelRows = result;
+                $scope.model.parsingStarted = false;
+                $scope.model.parsingFinished = true;
+
+                if ( $scope.model.excelRows[0] ) {
+                    Object.keys( $scope.model.excelRows[0] ).forEach( k => {
+                        if( k !== '__EMPTY'){
+                            $scope.model.excelColumns.push({
+                                displayName: k
+                            });
+                        }
+                    });
+                }
+
+                console.log('excelRows:  ', $scope.model.excelRows);
+
+            }, 10);
+        }
+    });
+
     //load programs associated with the selected org unit.
     $scope.loadPrograms = function() {
         $scope.model.programs = [];
         $scope.model.trackedEntityAccess = false;
-        $scope.model.selectedProgramStage = null;
         $scope.model.selectedOptionSet = null;
-        $scope.model.documents = [];
         if (angular.isObject($scope.selectedOrgUnit)) {
             ProgramFactory.getByOu( $scope.selectedOrgUnit ).then(function(res){
                 $scope.model.programs = res.programs || [];
@@ -102,13 +149,15 @@ art.controller('HomeController',
     //load details for selected program
     $scope.loadProgramDetails = function (){
         if( $scope.model.selectedProgram && $scope.model.selectedProgram.id && $scope.model.selectedProgram.programStages.length > 0){
+            $scope.model.voteColumn = {id: $scope.selectedOrgUnit.id, displayName: $translate.instant('vote_number')};
             $scope.model.artHeaders = [];
             $scope.model.programStageDataElements = null;
             $scope.model.trackedEntityAccess =  CommonUtils.userHasWriteAccess( 'ACCESSIBLE_TRACKEDENTITYTYPE', $scope.model.selectedProgram.trackedEntityType.id);
             angular.forEach($scope.model.selectedProgram.programTrackedEntityAttributes, function(pat){
-                if( pat.displayInList && pat.trackedEntityAttribute && pat.trackedEntityAttribute.id ){
+                if( pat.trackedEntityAttribute && pat.trackedEntityAttribute.id ){
                     var tea = $scope.model.trackedEntityAttributes[pat.trackedEntityAttribute.id];
                     if( tea ){
+                        tea.displayInList = pat.displayInList;
                         $scope.model.artHeaders.push(tea);
                     }
                 }
@@ -121,7 +170,7 @@ art.controller('HomeController',
     //fetch recommendations for selected orgunit and program combination
     $scope.fetchRecommendations = function(){
         if( $scope.selectedOrgUnit && $scope.selectedOrgUnit.id && $scope.model.selectedProgram && $scope.model.selectedProgram.id ){
-            ArtService.getByProgramAndOu($scope.model.selectedProgram, $scope.selectedOrgUnit, $scope.model.trackedEntityAttributes, $scope.model.optionSets).then(function(teis){
+            ArtService.getByProgramAndOu($scope.model.selectedProgram, $scope.selectedOrgUnit, $scope.model.trackedEntityAttributes, $scope.model.dataElementsById, $scope.model.optionSets).then(function(teis){
                 $scope.model.arts = teis;
             });
         }
@@ -183,6 +232,8 @@ art.controller('HomeController',
         $scope.model.art = angular.copy(art);
         $scope.model.originalArt = angular.copy(art);
         $scope.model.selectedStage = $scope.model.selectedProgram.programStages[0];
+        $scope.model.selectedEvent = angular.copy($scope.model.art.recommendationStatus[$scope.model.selectedStage.id]);
+        $scope.model.originalEvent = angular.copy($scope.model.art.recommendationStatus[$scope.model.selectedStage.id]);
     };
 
     $scope.updateArt = function(){
@@ -247,10 +298,21 @@ art.controller('HomeController',
         });
     };
 
+    $scope.saveStatus = function(){
+        //check for form validity
+        $scope.outerForm.submitted = true;
+        if( $scope.outerForm.$invalid ){
+            return false;
+        }
+    };
+
     $scope.setSelectedStage = function( stage ){
+        $scope.resetForm();
         $scope.model.selectedStage = stage;
+        $scope.model.originalEvent = {};
         if ( $scope.model.art.recommendationStatus[stage.id] ){
-            $scope.model.selectedEvent = $scope.model.art.recommendationStatus[stage.id];
+            $scope.model.selectedEvent = angular.copy($scope.model.art.recommendationStatus[stage.id]);
+            $scope.model.originalEvent = angular.copy($scope.model.art.recommendationStatus[stage.id]);
         }
         else{
             $scope.model.selectedEvent = {};
@@ -278,6 +340,13 @@ art.controller('HomeController',
         $scope.model.displaImportArt = false;
         $scope.model.displayEditArt = false;
         $scope.model.art = {};
+        $scope.model.inputFile = null;
+        $scope.model.excelData = null;
+        $scope.model.excelRows = [];
+        $scope.model.excelColumns = [];
+        $scope.model.selectedSheet = null;
+        $scope.model.parsingStarted = false;
+        $scope.model.parsingFinished = true;
     };
 
     $scope.showEditProfile = function(){
@@ -287,6 +356,12 @@ art.controller('HomeController',
     $scope.cancelEditProfile = function(){
         $scope.model.art = $scope.model.originalArt;
         $scope.model.editProfile = false;
+        $scope.resetForm();
+    };
+
+    $scope.cancelEditStatus = function(){
+        $scope.model.selectedEvent = $scope.model.originalEvent;
+        $scope.resetForm();
     };
 
     $scope.reset= function(){
@@ -294,6 +369,13 @@ art.controller('HomeController',
         $scope.model.artHeaders = [];
         $scope.model.arts = [];
         $scope.model.art = {};
+
+        $scope.resetForm();
+    };
+
+    $scope.resetForm = function(){
+        $scope.outerForm.submitted = false;
+        $scope.outerForm.$setPristine();
     };
 
     $scope.addOrEditArtDenied = function(){
@@ -304,4 +386,86 @@ art.controller('HomeController',
         return false;
     };
 
+    $scope.assignColumnToModel = function( column ){
+        //console.log('assinged:  ', $scope.model.excelColumns);
+
+        var isValidOption = function(options, value){
+            if (!value){
+                return true;
+            }
+            if ( options ){
+               for(var i=0; i<options.length; i++){
+                    if( value === options[i].displayName){
+                        return true;
+                    }
+                }
+            }
+            return false;;
+        };
+
+        delete $scope.model.cellValidity[column.displayName];
+
+        if( column.mappedObject ){
+            $scope.model.cellValidity[column.displayName] = {};
+
+            if ( column.mappedObject === $scope.selectedOrgUnit.id ){
+                var index = 0;
+                angular.forEach($scope.model.excelRows, function(row){
+                    $scope.model.cellValidity[column.displayName][index] = row[column.displayName] === $scope.selectedOrgUnit.code;
+                    index++;
+                });
+            }
+            else{
+                var att = $scope.model.trackedEntityAttributes[column.mappedObject];
+                if ( att ){
+                    var index = 0;
+                    angular.forEach($scope.model.excelRows, function(row){
+                        var isValid = true;
+                        if ( att.optionSetValue ){
+                            isValid = isValidOption( $scope.model.optionSets[att.optionSet.id], row[column.displayName] );
+                        }
+                        else{
+                            isValid = dhis2.validation.isValidValueType( row[column.displayName], att.valueType );
+                        }
+                        $scope.model.cellValidity[column.displayName][index] = isValid;
+                        index++;
+                    });
+                }
+            }
+        }
+    };
+
+    $scope.getUnAssignedHeaders = function( column ){
+        var unAssignedHeaders = [];
+
+        var isColumnAssigned = function( header ){
+            var assigned = false;
+            for( var i=0; i<$scope.model.excelColumns.length; i++){
+                var col = $scope.model.excelColumns[i];
+                if ( col.mappedObject === header.id && col.displayName !== column.displayName ){
+                    assigned = true;
+                    break;
+                }
+            }
+
+            return assigned;
+            if( !assigned ){
+                unAssignedHeaders.push( header );
+            }
+        };
+
+        var assigned = isColumnAssigned( $scope.model.voteColumn );
+        if( !assigned ){
+            unAssignedHeaders.push( $scope.model.voteColumn );
+        }
+
+        angular.forEach($scope.model.artHeaders, function(header){
+            var assigned = isColumnAssigned( header );
+            if( !assigned ){
+                unAssignedHeaders.push( header );
+            }
+        });
+
+        return unAssignedHeaders;
+    };
 });

@@ -5,20 +5,37 @@
             <div class="panel-heading bold">
                 {{'art_status'| translate}}
             </div>
-            <div class="panel-body">
+            <div class="panel-body small-pading">
                 <div class="row">
                     <div class="col-sm-12">
-                        <div class="list-group col-sm-3">
+                        <div class="list-group col-sm-3 small-pading">
                             <a ng-repeat="stage in model.selectedProgram.programStages" class="list-group-item cursor-pointer" ng-class="{true: 'active'} [stage.id === model.selectedStage.id]" ng-click="setSelectedStage(stage)">
                                 {{stage.displayName}}
                             </a>
                         </div>
-                        <div class="col-sm-9">
-                            <table class="table table-responsive table-bordered table-striped" ng-if="model.selectedStage">
+                        <div class="col-sm-9 small-pading">
+                            <table class="table table-responsive table-bordered table-striped small-bottom-margin" ng-if="model.selectedStage">
                                 <tr>
                                     <th colspan="2">
                                         {{'details_of_state'| translate}} {{model.selectedStage.displayName}}
                                     </th>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        {{model.selectedStage.executionDateLabel}}
+                                    </td>
+                                    <td>
+                                        <input type="text"
+                                            ng-attr-placeholder="{{dhis2CalendarFormat.keyDateFormat}}"
+                                            name="{{model.selectedStage.id}}"
+                                            class="form-control pull-center"
+                                            d2-date
+                                            min-date="model.art.enrollmentDate"
+                                            ng-disabled="canAddOrEditStatus()"
+                                            ng-required="true"
+                                            ng-model="model.selectedEvent.eventDate"/>
+                                        <span ng-messages="{{outerForm[model.selectedStage.id].$error}}" ng-if="interacted(outerForm[model.selectedStage.id])" class="required" ng-messages-include="../dhis-web-commons/angular-forms/error-messages.html"></span>
+                                    </td>
                                 </tr>
                                 <tr ng-repeat="psde in model.selectedStage.programStageDataElements" ng-init="de = model.dataElementsById[psde.dataElement.id]">
                                     <td>
@@ -27,8 +44,8 @@
                                     <td>
                                         <ng-form name="innerStatusForm">
                                             <div ng-if="de.optionSetValue">
-                                                <ui-select ng-model="model.art.recommendationStatus[model.selectedStage.id][de.id]"
-                                                           ng-required="psde.mandatory"
+                                                <ui-select ng-model="model.selectedEvent.values[de.id]"
+                                                           ng-required="psde.compulsory"
                                                            ng-disabled="canAddOrEditStatus()"
                                                            name="foo"
                                                            theme="select2"
@@ -45,24 +62,24 @@
                                                            name="foo"
                                                            class="form-control pull-center"
                                                            ng-disabled="canAddOrEditStatus()"
-                                                           ng-required="psde.mandatory"
-                                                           ng-model="model.art.recommendationStatus[model.selectedStage.id][de.id]">
+                                                           ng-required="psde.compulsory"
+                                                           ng-model="model.selectedEvent.values[de.id]">
                                                 </div>
                                                 <div ng-switch-when="TEXT">
                                                     <input type="text"
                                                            name="foo"
                                                            class="form-control pull-center"
                                                            ng-disabled="canAddOrEditStatus()"
-                                                           ng-required="psde.mandatory"
-                                                           ng-model="model.art.recommendationStatus[model.selectedStage.id][de.id]">
+                                                           ng-required="psde.compulsory"
+                                                           ng-model="model.selectedEvent.values[de.id]">
                                                 </div>
                                                 <div ng-switch-when="LONG_TEXT">
                                                     <textarea rows="3"
                                                               name="foo"
                                                               class="form-control pull-center"
                                                               ng-disabled="canAddOrEditStatus()"
-                                                              ng-required="psde.mandatory"
-                                                              ng-model="model.art.recommendationStatus[model.selectedStage.id][de.id]">
+                                                              ng-required="psde.compulsory"
+                                                              ng-model="model.selectedEvent.values[de.id]">
                                                     </textarea>
                                                 </div>
                                                 <div ng-switch-when="DATE">
@@ -72,8 +89,8 @@
                                                            class="form-control pull-center"
                                                            d2-date
                                                            ng-disabled="canAddOrEditStatus()"
-                                                           ng-required="psde.mandatory"
-                                                           ng-model="model.art.recommendationStatus[model.selectedStage.id][de.id]"/>
+                                                           ng-required="psde.compulsory"
+                                                           ng-model="model.selectedEvent.values[de.id]"/>
                                                 </div>
                                             </div>
                                             <span ng-messages="innerStatusForm.foo.$error" ng-if="interacted(innerStatusForm.foo)" class="required" ng-messages-include="../dhis-web-commons/angular-forms/error-messages.html"></span>
@@ -81,6 +98,18 @@
                                     </td>
                                 </tr>
                             </table>
+                            <div class="row col-sm-12">
+                                <button type="button"
+                                        class="btn btn-info"
+                                        ng-click="saveStatus()">
+                                    {{'save'| translate}}
+                                </button>
+                                <button type="button"
+                                        class="btn btn-danger horizontal-spacing"
+                                        ng-click="cancelEditStatus()">
+                                    {{'cancel'| translate}}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -91,15 +120,14 @@
         <div class="panel panel-default">
             <div class="panel-heading bold">
                 {{'art_profile'| translate}}
-                <span class="nav-pills" ng-if="!addOrEditArtDenied()">
-                    |
+                <span class="nav-pills pull-right" ng-if="!addOrEditArtDenied()">
                     <a href ng-click="showEditProfile()" ng-attr-title="{{'edit_profile'| translate}}">
                         {{'edit'| translate}}
                     </a>
                 </span>
             </div>
-            <div class="panel-body">
-                <table class="table table-responsive table-bordered table-striped">
+            <div class="panel-body small-pading">
+                <table class="table table-responsive table-bordered table-striped small-bottom-margin">
                     <tr>
                         <td>
                             {{'recommendation_date'| translate}}
@@ -113,7 +141,8 @@
                                    ng-disabled="addOrEditArtDenied() || !model.editProfile"
                                    ng-model="model.art.enrollmentDate"
                                    ng-required="true"/>
-                            <span ng-show="outerForm.submitted && outerForm.enrollmentDate.$invalid" class="error">{{'required'| translate}}</span>
+                            <span ng-messages="outerForm.enrollmentDate.$error" ng-if="interacted(outerForm.enrollmentDate)" class="required" ng-messages-include="../dhis-web-commons/angular-forms/error-messages.html"></span>
+                            <!--<span ng-show="outerForm.submitted && outerForm.enrollmentDate.$invalid" class="error">{{'required'| translate}}</span>-->
                         </td>
                     </tr>
                     <tr ng-repeat="pat in model.selectedProgram.programTrackedEntityAttributes" ng-init="att = model.trackedEntityAttributes[pat.trackedEntityAttribute.id]">

@@ -17,7 +17,7 @@
                     <span ng-show="outerForm.submitted && outerForm.enrollmentDate.$invalid" class="error">{{'required'| translate}}</span>
                 </td>
             </tr>
-            <tr ng-repeat="pat in model.selectedProgram.programTrackedEntityAttributes" ng-init="att = model.trackedEntityAttributes[pat.trackedEntityAttribute.id]">
+            <tr ng-repeat="att in model.artHeaders">
                 <td>
                     {{att.displayName}}
                 </td>
