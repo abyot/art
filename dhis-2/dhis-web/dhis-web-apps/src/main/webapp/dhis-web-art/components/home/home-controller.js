@@ -41,7 +41,10 @@ art.controller('HomeController',
         parsingStarted: false,
         parsingFinished: true,
         columnObjectMap: {},
-        cellValidity: []
+        cellValidity: [],
+        sortHeader: null,
+        recommendationDate: null,
+        implementationDate: null
     };
 
     //watch for selection of org unit from tree
@@ -63,9 +66,13 @@ art.controller('HomeController',
                         });
 
                         $scope.model.trackedEntityAttributes = [];
-                        MetaDataFactory.getAll('trackedEntityAttributes').then(function(teis){
-                            angular.forEach(teis, function(tei){
-                                $scope.model.trackedEntityAttributes[tei.id] = tei;
+                        MetaDataFactory.getAll('trackedEntityAttributes').then(function(teas){
+                            angular.forEach(teas, function(tea){
+                                if ( tea.recommendationDate ){
+                                    $scope.model.recommendationDate = tea;
+                                    $scope.model.sortHeader = {id: tea.id, direction: 'desc'};
+                                }
+                                $scope.model.trackedEntityAttributes[tea.id] = tea;
                             });
 
                             $scope.loadPrograms($scope.selectedOrgUnit);
@@ -127,8 +134,6 @@ art.controller('HomeController',
                     });
                 }
 
-                console.log('excelRows:  ', $scope.model.excelRows);
-
             }, 10);
         }
     });
@@ -148,7 +153,7 @@ art.controller('HomeController',
 
     //load details for selected program
     $scope.loadProgramDetails = function (){
-        if( $scope.model.selectedProgram && $scope.model.selectedProgram.id && $scope.model.selectedProgram.programStages.length > 0){
+        if( $scope.model.selectedProgram && $scope.model.selectedProgram.id ){
             $scope.model.voteColumn = {id: $scope.selectedOrgUnit.id, displayName: $translate.instant('vote_number')};
             $scope.model.artHeaders = [];
             $scope.model.programStageDataElements = null;
@@ -162,15 +167,14 @@ art.controller('HomeController',
                     }
                 }
             });
-
-            $scope.fetchRecommendations();
+            $scope.fetchRecommendations($scope.model.sortHeader);
         }
     };
 
     //fetch recommendations for selected orgunit and program combination
-    $scope.fetchRecommendations = function(){
+    $scope.fetchRecommendations = function( sortHeader ){
         if( $scope.selectedOrgUnit && $scope.selectedOrgUnit.id && $scope.model.selectedProgram && $scope.model.selectedProgram.id ){
-            ArtService.getByProgramAndOu($scope.model.selectedProgram, $scope.selectedOrgUnit, $scope.model.trackedEntityAttributes, $scope.model.dataElementsById, $scope.model.optionSets).then(function(teis){
+            ArtService.getByProgramAndOu($scope.model.selectedProgram, $scope.selectedOrgUnit, sortHeader, $scope.model.trackedEntityAttributes, $scope.model.dataElementsById, $scope.model.optionSets).then(function(teis){
                 $scope.model.arts = teis;
             });
         }
@@ -193,7 +197,7 @@ art.controller('HomeController',
             enrollments: [
                 {
                     program: $scope.model.selectedProgram.id,
-                    enrollmentDate: DateUtils.formatFromUserToApi($scope.model.art.enrollmentDate),
+                    enrollmentDate: DateUtils.formatFromUserToApi(DateUtils.getToday()),
                     orgUnit: $scope.selectedOrgUnit.id,
                     trackedEntityType: $scope.model.selectedProgram.trackedEntityType.id
                 }
@@ -206,6 +210,14 @@ art.controller('HomeController',
             var value = $scope.model.art[pat.trackedEntityAttribute.id];
             var tea = $scope.model.trackedEntityAttributes[pat.trackedEntityAttribute.id];
             value = CommonUtils.formatDataValue(null, value, tea, $scope.model.optionSets, 'API');
+
+            if ( tea.optionSetValue ){
+                var optionSet = $scope.model.optionSets[tea.optionSet.id];
+                if ( optionSet && optionSet.isTrafficLight ){
+                    art.trafficLight = value;
+                }
+            }
+
             if ( value ){
                 art.attributeValues[pat.trackedEntityAttribute.id] = $scope.model.art[pat.trackedEntityAttribute.id];
                 tei.attributes.push({
@@ -231,9 +243,12 @@ art.controller('HomeController',
         $scope.model.displayEditArt = true;
         $scope.model.art = angular.copy(art);
         $scope.model.originalArt = angular.copy(art);
-        $scope.model.selectedStage = $scope.model.selectedProgram.programStages[0];
-        $scope.model.selectedEvent = angular.copy($scope.model.art.recommendationStatus[$scope.model.selectedStage.id]);
-        $scope.model.originalEvent = angular.copy($scope.model.art.recommendationStatus[$scope.model.selectedStage.id]);
+        if ( $scope.model.selectedProgram.programStages && $scope.model.selectedProgram.programStages.length > 0 ){
+            $scope.model.selectedStage = $scope.model.selectedProgram.programStages[0];
+            $scope.model.selectedEvent = angular.copy($scope.model.art.recommendationStatus[$scope.model.selectedStage.id]);
+            $scope.model.originalEvent = angular.copy($scope.model.art.recommendationStatus[$scope.model.selectedStage.id]);
+            console.log('selected event:  ', $scope.model.selectedEvent);
+        }
     };
 
     $scope.updateArt = function(){
@@ -264,6 +279,14 @@ art.controller('HomeController',
             var value = $scope.model.art.attributeValues[pat.trackedEntityAttribute.id];
             var tea = $scope.model.trackedEntityAttributes[pat.trackedEntityAttribute.id];
             value = CommonUtils.formatDataValue(null, value, tea, $scope.model.optionSets, 'API');
+
+            if ( tea.optionSetValue ){
+                var optionSet = $scope.model.optionSets[tea.optionSet.id];
+                if ( optionSet && optionSet.isTrafficLight ){
+                    art.trafficLight = value;
+                }
+            }
+
             if ( value ){
                 art.attributeValues[pat.trackedEntityAttribute.id] = $scope.model.art.attributeValues[pat.trackedEntityAttribute.id];
                 tei.attributes.push({
@@ -299,11 +322,15 @@ art.controller('HomeController',
     };
 
     $scope.saveStatus = function(){
+        console.log('trying to save status ...');
         //check for form validity
         $scope.outerForm.submitted = true;
         if( $scope.outerForm.$invalid ){
+            console.log('form is invalid ...');
             return false;
         }
+
+        console.log('need to save status here ...', $scope.model.selectedEvent);
     };
 
     $scope.setSelectedStage = function( stage ){
@@ -332,6 +359,8 @@ art.controller('HomeController',
         if(field){
             status = $scope.outerForm.submitted || field.$dirty;
         }
+
+        console.log('outerform....', $scope.outerform);
         return status;
     };
 
@@ -376,6 +405,7 @@ art.controller('HomeController',
     $scope.resetForm = function(){
         $scope.outerForm.submitted = false;
         $scope.outerForm.$setPristine();
+        $scope.model.selectedStage = null;
     };
 
     $scope.addOrEditArtDenied = function(){
@@ -384,6 +414,21 @@ art.controller('HomeController',
 
     $scope.addOrEditStatusDenied = function(){
         return false;
+    };
+
+    $scope.sortItems = function( header ){
+        console.log('sorting...', header.id, ' - ', $scope.model.sortHeader.id );
+        $scope.reverse = ($scope.model.sortHeader && $scope.model.sortHeader.id === header.id) ? !$scope.reverse : false;
+        var direction = 'desc';
+        if ( $scope.model.sortHeader.id === header.id ){
+            console.log('am I here ... 0');
+            if ( $scope.model.sortHeader.direction === direction ){
+                console.log('am I here ... 1');
+                direction = 'asc';
+            }
+        }
+        $scope.model.sortHeader = {id: header.id, direction: direction};
+        $scope.fetchRecommendations( $scope.model.sortHeader );
     };
 
     $scope.assignColumnToModel = function( column ){

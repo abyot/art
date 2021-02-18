@@ -188,6 +188,18 @@ html, body {
     max-width: 15px !important;
 }
 
+ .green-background {
+    background-color: #39ce39 !important;
+ }
+
+.yellow-background {
+    background-color: #ffff00 !important;
+ }
+
+.red-background {
+    background-color: #fb6868 !important;
+ }
+
 .green-info-area {
     border: 1px solid #a4d2a3;
     background-color: #d0eBd0;
@@ -218,6 +230,10 @@ html, body {
 
 .horizontal-menu {
     color: #333;
+}
+
+.main-horizontal-menu > a:link {
+    background: #b4cdcd !important;
 }
 
 .select-list-buttons {

@@ -3,7 +3,7 @@
     <div class="col-sm-6 col-md-8">
         <div class="panel panel-default">
             <div class="panel-heading bold">
-                {{'art_status'| translate}}
+                {{'actions_taken'| translate}}
             </div>
             <div class="panel-body small-pading">
                 <div class="row">
@@ -17,7 +17,7 @@
                             <table class="table table-responsive table-bordered table-striped small-bottom-margin" ng-if="model.selectedStage">
                                 <tr>
                                     <th colspan="2">
-                                        {{'details_of_state'| translate}} {{model.selectedStage.displayName}}
+                                        {{'details' | translate}}
                                     </th>
                                 </tr>
                                 <tr>
@@ -98,9 +98,10 @@
                                     </td>
                                 </tr>
                             </table>
-                            <div class="row col-sm-12">
+                            <div class="row col-sm-12" ng-if="model.selectedStage">
                                 <button type="button"
                                         class="btn btn-info"
+                                        ng-disabled="outerForm.invalid"
                                         ng-click="saveStatus()">
                                     {{'save'| translate}}
                                 </button>

@@ -2,7 +2,7 @@
     <div class="col-sm-6">
         <h3>{{'new_art' | translate}}</h3>
         <table class="table table-bordered table-striped">
-            <tr>
+            <!--<tr>
                 <td>
                     {{'recommendation_date' | translate}}
                 </td>
@@ -16,7 +16,7 @@
                         ng-required="true"/>
                     <span ng-show="outerForm.submitted && outerForm.enrollmentDate.$invalid" class="error">{{'required'| translate}}</span>
                 </td>
-            </tr>
+            </tr>-->
             <tr ng-repeat="att in model.artHeaders">
                 <td>
                     {{att.displayName}}

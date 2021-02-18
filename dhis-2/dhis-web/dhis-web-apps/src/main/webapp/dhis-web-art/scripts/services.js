@@ -245,24 +245,47 @@ var artServices = angular.module('artServices', ['ngResource'])
             });
             return promise;
         },
-        getByProgramAndOu: function( program, orgUnit, attributesById, dataElementsById, optionSetsById ){
+        getByProgramAndOu: function( program, orgUnit, sortHeader, attributesById, dataElementsById, optionSetsById ){
             var promise;
             if( program.id && orgUnit.id ){
-                promise = $http.get(DHIS2URL + '/trackedEntityInstances.json?fields=*&order=created:desc&pageSize=50&page=1&totalPages=false&ouMode=SELECTED&ou=' + orgUnit.id + '&program=' + program.id).then(function (response) {
+                var order = 'order=created:desc';
+                if ( sortHeader && sortHeader.id ){
+                    order = 'order=' + sortHeader.id + ':' + sortHeader.direction;
+                }
+
+                promise = $http.get(DHIS2URL + '/trackedEntityInstances.json?fields=*&' + order + '&pageSize=50&page=1&totalPages=false&ouMode=SELECTED&ou=' + orgUnit.id + '&program=' + program.id).then(function (response) {
                     var arts = [];
                     var teis = response.data && response.data.trackedEntityInstances ? response.data.trackedEntityInstances : [];
                     angular.forEach(teis, function(tei){
                         tei.attributeValues = {};
                         tei.recommendationStatus = {};
+                        var recommendationDate = null, implementationDate = null;
                         angular.forEach(tei.attributes, function(atv){
                             var val = atv.value;
                             var att = attributesById[atv.attribute];
                             if( att && att.optionSetValue ){
+                                var optionSet = optionSetsById[att.optionSet.id];
                                 val = CommonUtils.formatDataValue(null, val, att, optionSetsById, 'USER');
+                                if ( optionSet && optionSet.isTrafficLight ){
+                                    tei.trafficLight = atv.value;
+                                }
+                            }
+
+                            if( att.recommendationDate ){
+                                recommendationDate = val;
+                            }
+                            else if( att.implementationDate ){
+                                implementationDate = val;
                             }
 
                             tei.attributeValues[atv.attribute] = val;
                         });
+
+                        if(!implementationDate){
+                            implementationDate = DateUtils.getToday();
+                        }
+                        tei.age = DateUtils.getDifference( recommendationDate, implementationDate);
+
                         if ( tei.enrollments.length === 1 ){
                             tei.enrollment = tei.enrollments[0].enrollment;
                             tei.enrollmentDate = DateUtils.formatFromApiToUser(tei.enrollments[0].enrollmentDate);

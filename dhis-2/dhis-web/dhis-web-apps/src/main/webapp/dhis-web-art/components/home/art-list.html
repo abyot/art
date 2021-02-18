@@ -1,6 +1,6 @@
 <div class="row">
     <div class="col-sm-12">
-        <table class="table table-bordered table-striped dhis2-table-hover">
+        <table class="table table-bordered dhis2-table-hover">
             <thead>
                 <tr>
                     <th colspan="100%" class="center">
@@ -10,19 +10,32 @@
             </thead>
             <thead>
                 <tr>
-                    <th class="vertical-center" ng-repeat="header in model.artHeaders" ng-if="header.displayInList">
+                    <th class="vertical-center cursor-pointer"
+                        ng-repeat="header in model.artHeaders"
+                        ng-click="sortItems(header)"
+                        ng-if="header.displayInList">
                         {{header.displayName}}
+                        <span class="fa-stack hideInPrint">
+                            <span ng-class="{true: 'alert-danger'} [model.sortHeader.id === header.id && !reverse]"><i class="fa fa-sort-asc fa-stack-1x"></i></span>
+                            <span ng-class="{true: 'alert-danger'} [model.sortHeader.id === header.id && reverse]"><i class="fa fa-sort-desc fa-stack-1x"></i></span>
+                        </span>
+                    </th>
+                    <th class="vertical-center">
+                        {{'recommendation_age' | translate}}
                     </th>
                 </tr>
             </thead>
             <tbody>
-                <tr ng-repeat="art in model.arts">
+                <tr ng-repeat="art in model.arts" ng-class="{'green-background': art.trafficLight === 'green', 'yellow-background': art.trafficLight === 'yellow', 'red-background': art.trafficLight == 'red'}">
                     <td class="vertical-center"
                         ng-repeat="header in model.artHeaders"
                         ng-if="header.displayInList"
                         ng-click="showEditArt(art)"
                         ng-attr-title="{{'show_details'| translate}}">
                         {{art.attributeValues[header.id]}}
+                    </td>
+                    <td>
+                        {{art.age}}
                     </td>
                 </tr>
             </tbody>
