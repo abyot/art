@@ -30,6 +30,8 @@ package org.hisp.dhis.webapi.controller;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+
+import org.hisp.dhis.common.Pager;
 import org.hisp.dhis.configuration.ConfigurationService;
 import org.hisp.dhis.dxf2.webmessage.WebMessageException;
 import org.hisp.dhis.dxf2.webmessage.WebMessageUtils;
@@ -52,6 +54,7 @@ import org.hisp.dhis.organisationunit.OrganisationUnit;
 import org.hisp.dhis.organisationunit.OrganisationUnitService;
 import org.hisp.dhis.query.Junction;
 import org.hisp.dhis.query.Order;
+import org.hisp.dhis.query.Pagination;
 import org.hisp.dhis.query.Query;
 import org.hisp.dhis.query.QueryParserException;
 import org.hisp.dhis.schema.descriptors.MessageConversationSchemaDescriptor;
@@ -65,6 +68,7 @@ import org.hisp.dhis.webapi.webdomain.MessageConversation;
 import org.hisp.dhis.webapi.webdomain.WebMetadata;
 import org.hisp.dhis.webapi.webdomain.WebOptions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -75,6 +79,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -175,7 +180,7 @@ public class MessageConversationController
             messageConversations = new ArrayList<>( messageService.getMessageConversations( ) );
         }
 
-        Query query = queryService.getQueryFromUrl( getEntityClass(), filters, orders, getPaginationData(options), options.getRootJunction() );
+        Query query = queryService.getQueryFromUrl( getEntityClass(), filters, orders, new Pagination(), options.getRootJunction() );
         query.setDefaultOrder();
         query.setDefaults( Defaults.valueOf( options.get( "defaults", DEFAULTS ) ) );
         query.setObjects( messageConversations );
@@ -194,9 +199,22 @@ public class MessageConversationController
                 "messages.text:" + queryOperator + ":" + options.get( "queryString" ),
                 "messages.sender.displayName:" + queryOperator + ":" + options.get( "queryString" ) );
             Query subQuery = queryService
-                .getQueryFromUrl( getEntityClass(), queryFilter, Collections.emptyList(), getPaginationData(options), Junction.Type.OR );
+                .getQueryFromUrl( getEntityClass(), queryFilter, Collections.emptyList(), new Pagination(), Junction.Type.OR );
             subQuery.setObjects( messageConversations );
             messageConversations = (List<org.hisp.dhis.message.MessageConversation>) queryService.query( subQuery );
+        }
+
+        int count = messageConversations.size();
+
+        Query paginatedQuery = queryService.getQueryFromUrl( getEntityClass(), Collections.emptyList(), Collections.emptyList(), getPaginationData(options), options.getRootJunction() );
+        paginatedQuery.setObjects( messageConversations );
+
+        messageConversations = (List<org.hisp.dhis.message.MessageConversation>) queryService.query( paginatedQuery );
+
+        if ( options.hasPaging() )
+        {
+            Pager pager = new Pager( options.getPage(), count, options.getPageSize() );
+            metadata.setPager( pager );
         }
 
         return messageConversations;
@@ -380,8 +398,9 @@ public class MessageConversationController
 
 
     @RequestMapping( value = "/{uid}/recipients", method = RequestMethod.POST )
+    @ResponseStatus( HttpStatus.NO_CONTENT )
     public void addRecipientsToMessageConversation( @PathVariable( "uid" ) String uid,
-        @RequestBody MessageConversation messageConversation, HttpServletRequest request, HttpServletResponse response )
+        @RequestBody MessageConversation messageConversation )
         throws Exception
     {
         org.hisp.dhis.message.MessageConversation conversation = messageService.getMessageConversation( uid );

@@ -68,6 +68,10 @@ html, body {
     cursor: pointer !important;
 }
 
+#ui-datepicker-div, .calendars-popup {
+    z-index: 2000;
+}
+
 .menu-title  {
     margin: 8px;
 }
@@ -360,4 +364,14 @@ html, body {
 
 .small-pading {
     padding: 5px !important;
+}
+
+.filter-with-content {
+    float: right !important;
+    color: red;
+}
+
+.filter-without-content {
+    float: right !important;
+    color: black;
 }

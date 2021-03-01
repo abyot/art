@@ -29,8 +29,10 @@ package org.hisp.dhis.program;
  */
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.hisp.dhis.external.conf.ConfigurationKey.CHANGELOG_TRACKER;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.hisp.dhis.cache.Cache;
 import org.hisp.dhis.common.AuditType;
@@ -38,6 +40,7 @@ import org.hisp.dhis.common.IllegalQueryException;
 import org.hisp.dhis.dataelement.DataElement;
 import org.hisp.dhis.event.EventStatus;
 import org.hisp.dhis.eventdatavalue.EventDataValue;
+import org.hisp.dhis.external.conf.DhisConfigurationProvider;
 import org.hisp.dhis.fileresource.FileResource;
 import org.hisp.dhis.fileresource.FileResourceService;
 import org.hisp.dhis.i18n.I18nFormat;
@@ -76,21 +79,26 @@ public class DefaultProgramStageInstanceService
 
     private final FileResourceService fileResourceService;
 
+    private final DhisConfigurationProvider config;
+
     public DefaultProgramStageInstanceService( CurrentUserService currentUserService,
         ProgramInstanceService programInstanceService, ProgramStageInstanceStore programStageInstanceStore,
-        TrackedEntityDataValueAuditService dataValueAuditService, FileResourceService fileResourceService )
+        TrackedEntityDataValueAuditService dataValueAuditService, FileResourceService fileResourceService,
+        DhisConfigurationProvider config )
     {
         checkNotNull( currentUserService );
         checkNotNull( programInstanceService );
         checkNotNull( programStageInstanceStore );
         checkNotNull( dataValueAuditService );
         checkNotNull( fileResourceService );
+        checkNotNull( config );
 
         this.currentUserService = currentUserService;
         this.programInstanceService = programInstanceService;
         this.programStageInstanceStore = programStageInstanceStore;
         this.dataValueAuditService = dataValueAuditService;
         this.fileResourceService = fileResourceService;
+        this.config = config;
     }
 
     // -------------------------------------------------------------------------
@@ -279,7 +287,7 @@ public class DefaultProgramStageInstanceService
     @Transactional
     public void auditDataValuesChangesAndHandleFileDataValues( Set<EventDataValue> newDataValues,
         Set<EventDataValue> updatedDataValues, Set<EventDataValue> removedDataValues,
-        Cache<DataElement> dataElementsCache, ProgramStageInstance programStageInstance, boolean singleValue )
+        Map<String, DataElement> dataElementsCache, Set<String> nonAccessibleDataElements, ProgramStageInstance programStageInstance, boolean singleValue )
     {
         Set<EventDataValue> updatedOrNewDataValues = Sets.union( newDataValues, updatedDataValues );
 
@@ -296,7 +304,8 @@ public class DefaultProgramStageInstanceService
         }
         else
         {
-            programStageInstance.setEventDataValues( updatedOrNewDataValues );
+            Set<EventDataValue> nonAccessibleDataValues = programStageInstance.getEventDataValues().stream().filter( dv -> nonAccessibleDataElements.contains( dv.getDataElement() ) ).collect(  Collectors.toSet() );
+            programStageInstance.setEventDataValues( Sets.union( nonAccessibleDataValues, updatedOrNewDataValues ) );
         }
 
         auditDataValuesChanges( newDataValues, updatedDataValues, removedDataValues, dataElementsCache,
@@ -368,25 +377,25 @@ public class DefaultProgramStageInstanceService
     // ---- Audit ----
 
     private void auditDataValuesChanges( Set<EventDataValue> newDataValues, Set<EventDataValue> updatedDataValues,
-        Set<EventDataValue> removedDataValues, Cache<DataElement> dataElementsCache,
+        Set<EventDataValue> removedDataValues, Map<String, DataElement> dataElementsCache,
         ProgramStageInstance programStageInstance )
     {
-
-        newDataValues.forEach( dv -> createAndAddAudit( dv, dataElementsCache.get( dv.getDataElement() ).orElse( null ),
+        newDataValues.forEach( dv -> createAndAddAudit( dv, dataElementsCache.get( dv.getDataElement() ),
             programStageInstance, AuditType.CREATE ) );
-        updatedDataValues.forEach( dv -> createAndAddAudit( dv, dataElementsCache.get( dv.getDataElement() ).orElse( null ),
+        updatedDataValues.forEach( dv -> createAndAddAudit( dv, dataElementsCache.get( dv.getDataElement() ),
             programStageInstance, AuditType.UPDATE ) );
-        removedDataValues.forEach( dv -> createAndAddAudit( dv, dataElementsCache.get( dv.getDataElement() ).orElse( null ),
+        removedDataValues.forEach( dv -> createAndAddAudit( dv, dataElementsCache.get( dv.getDataElement() ),
             programStageInstance, AuditType.DELETE ) );
     }
 
     private void createAndAddAudit( EventDataValue dataValue, DataElement dataElement,
         ProgramStageInstance programStageInstance, AuditType auditType )
     {
-        if ( dataElement == null )
+        if ( !config.isEnabled( CHANGELOG_TRACKER ) || dataElement == null )
         {
             return;
         }
+
         TrackedEntityDataValueAudit dataValueAudit = new TrackedEntityDataValueAudit( dataElement, programStageInstance,
             dataValue.getValue(), dataValue.getStoredBy(), dataValue.getProvidedElsewhere(), auditType );
         dataValueAuditService.addTrackedEntityDataValueAudit( dataValueAudit );
@@ -394,13 +403,13 @@ public class DefaultProgramStageInstanceService
 
     // ---- File Data Values Handling ----
     private void handleFileDataValueChanges( Set<EventDataValue> newDataValues, Set<EventDataValue> updatedDataValues,
-        Set<EventDataValue> removedDataValues, Cache<DataElement> dataElementsCache )
+        Set<EventDataValue> removedDataValues, Map<String, DataElement> dataElementsCache )
     {
         removedDataValues
-            .forEach( dv -> handleFileDataValueDelete( dv, dataElementsCache.get( dv.getDataElement() ).orElse( null ) ) );
+            .forEach( dv -> handleFileDataValueDelete( dv, dataElementsCache.get( dv.getDataElement() ) ) );
         updatedDataValues
-            .forEach( dv -> handleFileDataValueUpdate( dv, dataElementsCache.get( dv.getDataElement() ).orElse( null ) ) );
-        newDataValues.forEach( dv -> handleFileDataValueSave( dv, dataElementsCache.get( dv.getDataElement() ).orElse( null ) ) );
+            .forEach( dv -> handleFileDataValueUpdate( dv, dataElementsCache.get( dv.getDataElement() ) ) );
+        newDataValues.forEach( dv -> handleFileDataValueSave( dv, dataElementsCache.get( dv.getDataElement() ) ) );
     }
 
     private void handleFileDataValueUpdate( EventDataValue dataValue, DataElement dataElement )

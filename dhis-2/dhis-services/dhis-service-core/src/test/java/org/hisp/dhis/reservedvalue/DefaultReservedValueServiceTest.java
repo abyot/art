@@ -31,6 +31,7 @@ package org.hisp.dhis.reservedvalue;
 import com.google.common.collect.Lists;
 import org.apache.commons.collections4.ListUtils;
 import org.hisp.dhis.DhisTest;
+import org.hisp.dhis.IntegrationTestBase;
 import org.hisp.dhis.common.IdentifiableObject;
 import org.hisp.dhis.common.Objects;
 import org.hisp.dhis.textpattern.TextPattern;
@@ -57,7 +58,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class DefaultReservedValueServiceTest
-    extends DhisTest
+    extends IntegrationTestBase
 {
     @Autowired
     private ReservedValueService reservedValueService;
@@ -116,7 +117,7 @@ public class DefaultReservedValueServiceTest
     }
 
     @Override
-    protected boolean emptyDatabaseAfterTest()
+    public boolean emptyDatabaseAfterTest()
     {
         return true;
     }
@@ -231,7 +232,7 @@ public class DefaultReservedValueServiceTest
         throws Exception
     {
         thrown.expect( ReserveValueException.class );
-        thrown.expectMessage( "Could not reserve value: Not enough values left to reserve 101 values." );
+        thrown.expectMessage( "Unable to reserve value, no new values available." );
 
         reservedValueService.reserve( simpleSequentialTextPattern, 101, new HashMap<>(), future );
     }
@@ -244,7 +245,7 @@ public class DefaultReservedValueServiceTest
             reservedValueService.reserve( simpleSequentialTextPattern, 99, new HashMap<>(), future ).size() );
 
         thrown.expect( ReserveValueException.class );
-        thrown.expectMessage( "Could not reserve value: Not enough values left to reserve 1 values." );
+        thrown.expectMessage( "Unable to reserve value, no new values available." );
 
         reservedValueService.reserve( simpleSequentialTextPattern, 1, new HashMap<>(), future );
     }

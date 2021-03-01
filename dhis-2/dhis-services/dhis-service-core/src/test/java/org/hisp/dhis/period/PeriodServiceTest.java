@@ -38,6 +38,8 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
+import org.hibernate.SessionFactory;
+import org.hibernate.StatelessSession;
 import org.hisp.dhis.DhisSpringTest;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,7 +53,10 @@ public class PeriodServiceTest
 {
     @Autowired
     private PeriodService periodService;
-    
+
+    @Autowired
+    private SessionFactory sessionFactory;
+
     // -------------------------------------------------------------------------
     // Period
     // -------------------------------------------------------------------------
@@ -572,5 +577,34 @@ public class PeriodServiceTest
         assertNotNull( periodService.getPeriodType( periodTypeB.getId() ) );
         assertNotNull( periodService.getPeriodType( periodTypeC.getId() ) );
         assertNotNull( periodService.getPeriodType( periodTypeD.getId() ) );
+    }
+
+    @Test
+    public void testReloadPeriodInStatelessSession()
+    {
+        Period period = periodService.reloadIsoPeriodInStatelessSession( "202510" );
+
+        assertNotNull( period );
+
+        removeTestPeriod( "202510" );
+    }
+
+    private void removeTestPeriod( String period )
+    {
+        StatelessSession session = sessionFactory.openStatelessSession();
+        session.beginTransaction();
+        try
+        {
+            session.delete( periodService.getPeriod( period ) );
+            session.getTransaction().commit();
+        }
+        catch ( Exception ex )
+        {
+            session.getTransaction().rollback();
+        }
+        finally
+        {
+            session.close();
+        }
     }
 }

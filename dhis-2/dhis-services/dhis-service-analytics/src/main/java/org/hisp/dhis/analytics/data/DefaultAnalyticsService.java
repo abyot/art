@@ -29,6 +29,7 @@ package org.hisp.dhis.analytics.data;
  */
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.commons.collections4.CollectionUtils.isNotEmpty;
 import static org.hisp.dhis.analytics.DataQueryParams.Builder;
 import static org.hisp.dhis.analytics.DataQueryParams.COMPLETENESS_DIMENSION_TYPES;
 import static org.hisp.dhis.analytics.DataQueryParams.DENOMINATOR_HEADER_NAME;
@@ -63,7 +64,10 @@ import static org.hisp.dhis.common.DimensionalObjectUtils.asTypedList;
 import static org.hisp.dhis.common.DimensionalObjectUtils.getDimensionalItemIds;
 import static org.hisp.dhis.common.IdentifiableObjectUtils.getLocalPeriodIdentifiers;
 import static org.hisp.dhis.common.IdentifiableObjectUtils.getUids;
-import static org.hisp.dhis.common.ReportingRateMetric.*;
+import static org.hisp.dhis.common.ReportingRateMetric.ACTUAL_REPORTS;
+import static org.hisp.dhis.common.ReportingRateMetric.ACTUAL_REPORTS_ON_TIME;
+import static org.hisp.dhis.common.ReportingRateMetric.EXPECTED_REPORTS;
+import static org.hisp.dhis.common.ReportingRateMetric.REPORTING_RATE_ON_TIME;
 import static org.hisp.dhis.organisationunit.OrganisationUnit.getParentGraphMap;
 import static org.hisp.dhis.organisationunit.OrganisationUnit.getParentNameGraphMap;
 import static org.hisp.dhis.period.PeriodType.getPeriodTypeFromIsoString;
@@ -141,7 +145,6 @@ import org.hisp.dhis.system.util.MathUtils;
 import org.hisp.dhis.util.ObjectUtils;
 import org.hisp.dhis.util.Timer;
 import org.hisp.dhis.visualization.Visualization;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -481,7 +484,9 @@ public class DefaultAnalyticsService
 
             List<Indicator> indicators = asTypedList( dataSourceParams.getIndicators() );
 
-            List<Period> filterPeriods = dataSourceParams.getTypedFilterPeriods();
+            List<Period> filterPeriods = isNotEmpty( dataSourceParams.getTypedFilterPeriods() )
+                ? dataSourceParams.getTypedFilterPeriods()
+                : dataSourceParams.getStartEndDatesToSingleList();
 
             Map<String, Constant> constantMap = constantService.getConstantMap();
 
@@ -755,8 +760,34 @@ public class DefaultAnalyticsService
 
                     if ( dataSetPt.equalsName( DailyPeriodType.NAME ) )
                     {
-                        Period period = PeriodType.getPeriodFromIsoString( dataRow.get( periodIndex ) );
-                        target = target * period.getDaysInPeriod() * timeUnits;
+                        boolean hasPeriodInDimension = periodIndex != -1;
+
+                        // If we enter here, it means there is a "pe" in the dimension parameter.
+                        if ( hasPeriodInDimension )
+                        {
+                            final Period period = PeriodType.getPeriodFromIsoString( dataRow.get( periodIndex ) );
+
+                            target = target * period.getDaysInPeriod() * timeUnits;
+                        }
+                        else
+                        {
+                            // If we reach here, it means that we should have a "pe" dimension in the filter
+                            // parameter.
+                            final List<DimensionalItemObject> periods = params.getFilterPeriods();
+
+                            if ( isNotEmpty( periods ) )
+                            {
+                                int totalOfDayInPeriod = 0;
+
+                                for ( final DimensionalItemObject itemObject : periods )
+                                {
+                                    final Period period = (Period) itemObject;
+                                    totalOfDayInPeriod += period.getDaysInPeriod();
+                                }
+
+                                target += target * totalOfDayInPeriod;
+                            }
+                        }
                     }
                     else
                     {
@@ -821,6 +852,28 @@ public class DefaultAnalyticsService
             Grid eventGrid = eventAnalyticsService.getAggregatedEventData( eventQueryParams );
 
             grid.addRows( eventGrid );
+
+            replaceGridIfNeeded( grid, eventGrid );
+        }
+    }
+
+    /**
+     * This method will replace the headers in the current grid by the event grid
+     * IF, and only IF, there is a mismatch between the current grid and the event
+     * grid headers.
+     *
+     * @param grid the current/actual grid
+     * @param eventGrid the event grid
+     */
+    private void replaceGridIfNeeded( final Grid grid, final Grid eventGrid )
+    {
+        final boolean eventGridHasAdditionalHeaders = grid.getHeaderWidth() < eventGrid.getHeaderWidth();
+        final boolean eventHeaderSizeIsSameAsGridColumns = eventGrid.getHeaderWidth() == eventGrid.getWidth();
+
+        // Replacing the current grid headers by the actual event grid headers.
+        if ( eventGridHasAdditionalHeaders && eventHeaderSizeIsSameAsGridColumns )
+        {
+            grid.replaceHeaders( eventGrid.getHeaders() );
         }
     }
 
@@ -1004,6 +1057,8 @@ public class DefaultAnalyticsService
         {
             for ( String dimension : columns )
             {
+                visualization.addDimensionDescriptor( dimension, params.getDimension( dimension ).getDimensionType() );
+
                 visualization.getColumnDimensions().add( dimension );
                 tableColumns.add( params.getDimensionItemsExplodeCoc( dimension ) );
             }
@@ -1013,6 +1068,8 @@ public class DefaultAnalyticsService
         {
             for ( String dimension : rows )
             {
+                visualization.addDimensionDescriptor( dimension, params.getDimension( dimension ).getDimensionType() );
+
                 visualization.getRowDimensions().add( dimension );
                 tableRows.add( params.getDimensionItemsExplodeCoc( dimension ) );
             }
@@ -1135,7 +1192,7 @@ public class DefaultAnalyticsService
     }
 
     /**
-     * Generates a mapping between the the data set dimension key and the count
+     * Generates a mapping between the data set dimension key and the count
      * of expected data sets to report.
      *
      * @param params the {@link DataQueryParams}.

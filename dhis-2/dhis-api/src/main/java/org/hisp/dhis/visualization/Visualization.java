@@ -34,13 +34,14 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
-import org.apache.commons.lang3.StringUtils;
+
 import org.hisp.dhis.analytics.NumberType;
 import org.hisp.dhis.category.CategoryCombo;
 import org.hisp.dhis.color.ColorSet;
 import org.hisp.dhis.common.BaseAnalyticalObject;
 import org.hisp.dhis.common.BaseDimensionalObject;
 import org.hisp.dhis.common.CombinationGenerator;
+import org.hisp.dhis.common.DimensionType;
 import org.hisp.dhis.common.DimensionalItemObject;
 import org.hisp.dhis.common.DimensionalObject;
 import org.hisp.dhis.common.DimensionalObjectUtils;
@@ -61,6 +62,7 @@ import org.hisp.dhis.legend.LegendDisplayStyle;
 import org.hisp.dhis.legend.LegendSet;
 import org.hisp.dhis.organisationunit.OrganisationUnit;
 import org.hisp.dhis.period.Period;
+import org.hisp.dhis.schema.annotation.PropertyRange;
 import org.hisp.dhis.user.User;
 import org.springframework.util.Assert;
 
@@ -83,6 +85,7 @@ import static org.hisp.dhis.common.DimensionalObjectUtils.getSortedKeysMap;
 import static org.hisp.dhis.common.DxfNamespaces.DXF_2_0;
 import static org.hisp.dhis.common.ValueType.NUMBER;
 import static org.hisp.dhis.common.ValueType.TEXT;
+import static org.hisp.dhis.visualization.DimensionDescriptor.getDimensionIdentifierFor;
 import static org.hisp.dhis.visualization.VisualizationType.PIVOT_TABLE;
 
 @JacksonXmlRootElement( localName = "visualization", namespace = DXF_2_0 )
@@ -348,6 +351,8 @@ public class Visualization
     private transient List<List<DimensionalItemObject>> gridColumns = new ArrayList<>();
 
     private transient List<List<DimensionalItemObject>> gridRows = new ArrayList<>();
+
+    private transient List<DimensionDescriptor> dimensionDescriptors = new ArrayList<>();
 
     public Visualization()
     {
@@ -949,6 +954,7 @@ public class Visualization
 
     @JsonProperty
     @JacksonXmlProperty( namespace = DXF_2_0 )
+    @PropertyRange( min = -Double.MAX_VALUE )
     public Double getTargetLineValue()
     {
         return targetLineValue;
@@ -961,6 +967,7 @@ public class Visualization
 
     @JsonProperty
     @JacksonXmlProperty( namespace = DXF_2_0 )
+    @PropertyRange( min = -Double.MAX_VALUE )
     public Double getBaseLineValue()
     {
         return baseLineValue;
@@ -985,6 +992,7 @@ public class Visualization
 
     @JsonProperty
     @JacksonXmlProperty( namespace = DXF_2_0 )
+    @PropertyRange( min = -Double.MAX_VALUE )
     public Double getRangeAxisMaxValue()
     {
         return rangeAxisMaxValue;
@@ -997,6 +1005,7 @@ public class Visualization
 
     @JsonProperty
     @JacksonXmlProperty( namespace = DXF_2_0 )
+    @PropertyRange( min = -Double.MAX_VALUE )
     public Double getRangeAxisMinValue()
     {
         return rangeAxisMinValue;
@@ -1042,6 +1051,30 @@ public class Visualization
     public void setYearlySeries( List<String> yearlySeries )
     {
         this.yearlySeries = yearlySeries;
+    }
+
+    /**
+     * Returns the list of DimensionDescriptor held internally to the current Visualization object.
+     * See {@link #addDimensionDescriptor}.
+     *
+     * @return the list of DimensionDescriptor's held.
+     */
+    public List<DimensionDescriptor> getDimensionDescriptors()
+    {
+        return dimensionDescriptors;
+    }
+
+    /**
+     * This method will hold the mapping of a dimension and its respective formal
+     * type.
+     *
+     * @param dimension the dimension, which should also be found in
+     *        "{@link #columnDimensions}" and "{@link #rowDimensions}".
+     * @param dimensionType the formal dimension type. See {@link DimensionType}
+     */
+    public void addDimensionDescriptor( final String dimension, final DimensionType dimensionType )
+    {
+        this.dimensionDescriptors.add( new DimensionDescriptor( dimension, dimensionType ) );
     }
 
     @Override
@@ -1407,10 +1440,11 @@ public class Visualization
         final Map<String, String> metaData = getMetaData();
         metaData.putAll( PRETTY_NAMES );
 
-        for ( String row : rowDimensions )
+        for ( String dimension : rowDimensions )
         {
-            final String name = StringUtils.defaultIfEmpty( metaData.get( row ), row );
-            final String col = StringUtils.defaultIfEmpty( COLUMN_NAMES.get( row ), row );
+            final String dimensionId = getDimensionIdentifierFor( dimension, getDimensionDescriptors() );
+            final String name = defaultIfEmpty( metaData.get( dimensionId ), dimensionId );
+            final String col = defaultIfEmpty( COLUMN_NAMES.get( dimensionId ), dimensionId );
 
             grid.addHeader( new GridHeader( name + " ID", col + "id", TEXT, String.class.getName(), true, true ) );
             grid.addHeader( new GridHeader( name, col + "name", TEXT, String.class.getName(), false, true ) );

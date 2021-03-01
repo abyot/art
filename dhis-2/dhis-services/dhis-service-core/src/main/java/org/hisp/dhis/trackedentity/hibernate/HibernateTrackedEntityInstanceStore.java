@@ -252,6 +252,11 @@ public class HibernateTrackedEntityInstanceStore
         {
             hql += hlp.whereAnd() + "tei.trackedEntityType.uid='" + params.getTrackedEntityType().getUid() + "'";
         }
+        
+        if ( params.hasTrackedEntityInstances() )
+        {
+            hql += hlp.whereAnd() + " tei.uid in (" + getQuotedCommaDelimitedString( params.getTrackedEntityInstanceUids() ) + ")";
+        }
 
         if ( params.hasLastUpdatedDuration() )
         {
@@ -591,6 +596,11 @@ public class HibernateTrackedEntityInstanceStore
                 }
             }
         }
+        
+        if ( params.hasTrackedEntityInstances() )
+        {
+            sql += hlp.whereAnd() + " tei.uid in (" + getQuotedCommaDelimitedString( params.getTrackedEntityInstanceUids() ) + ")" ;
+        }
 
         if ( !params.hasTrackedEntityType() )
         {
@@ -739,7 +749,7 @@ public class HibernateTrackedEntityInstanceStore
                 sql += " psi.executiondate >= '" + start + "' and psi.executiondate <= '" + end + "' " + "and psi.status = '" + EventStatus.COMPLETED.name()
                     + "' and ";
             }
-            else if ( params.isEventStatus( EventStatus.VISITED ) )
+            else if ( params.isEventStatus( EventStatus.VISITED ) || params.isEventStatus( EventStatus.ACTIVE ) )
             {
                 sql += " psi.executiondate >= '" + start + "' and psi.executiondate <= '" + end + "' " + "and psi.status = '" + EventStatus.ACTIVE.name()
                     + "' and ";
@@ -758,6 +768,11 @@ public class HibernateTrackedEntityInstanceStore
             {
                 sql += " psi.duedate >= '" + start + "' and psi.duedate <= '" + end + "' " + "and psi.status = '" + EventStatus.SKIPPED.name() + "' and ";
             }
+        }
+
+        if ( params.hasProgramStage() )
+        {
+            sql += " psi.programstageid = " + params.getProgramStage().getId() + " and ";
         }
 
         if ( params.hasAssignedUsers() )
@@ -795,7 +810,7 @@ public class HibernateTrackedEntityInstanceStore
                 hql += " psi.executionDate >= '" + start + "' and psi.executionDate <= '" + end + "' " + "and psi.status = '" + EventStatus.COMPLETED.name()
                     + "' and ";
             }
-            else if ( params.isEventStatus( EventStatus.VISITED ) )
+            else if ( params.isEventStatus( EventStatus.VISITED ) || params.isEventStatus( EventStatus.ACTIVE ) )
             {
                 hql += " psi.executionDate >= '" + start + "' and psi.executionDate <= '" + end + "' " + "and psi.status = '" + EventStatus.ACTIVE.name()
                     + "' and ";
@@ -814,6 +829,11 @@ public class HibernateTrackedEntityInstanceStore
             {
                 hql += " psi.dueDate >= '" + start + "' and psi.dueDate <= '" + end + "' " + "and psi.status = '" + EventStatus.SKIPPED.name() + "' and ";
             }
+        }
+
+        if ( params.hasProgramStage() )
+        {
+            hql += " psi.programStage.uid = " + params.getProgramStage().getUid() + " and ";
         }
 
         if ( params.hasAssignedUsers() )

@@ -32,18 +32,14 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import lombok.extern.slf4j.Slf4j;
-import org.hisp.dhis.common.CodeGenerator;
-import org.hisp.dhis.common.IdSchemes;
-import org.hisp.dhis.common.IdentifiableObjectManager;
-import org.hisp.dhis.common.IllegalQueryException;
-import org.hisp.dhis.common.OrganisationUnitSelectionMode;
-import org.hisp.dhis.common.Pager;
+import org.hisp.dhis.common.*;
 import org.hisp.dhis.common.exception.InvalidIdentifierReferenceException;
 import org.hisp.dhis.commons.collection.CachingMap;
 import org.hisp.dhis.commons.util.DebugUtils;
 import org.hisp.dhis.dbms.DbmsManager;
 import org.hisp.dhis.dxf2.Constants;
 import org.hisp.dhis.dxf2.common.ImportOptions;
+import org.hisp.dhis.dxf2.events.NoteHelper;
 import org.hisp.dhis.dxf2.events.RelationshipParams;
 import org.hisp.dhis.dxf2.events.TrackedEntityInstanceParams;
 import org.hisp.dhis.dxf2.events.event.Coordinate;
@@ -60,15 +56,7 @@ import org.hisp.dhis.dxf2.importsummary.ImportSummary;
 import org.hisp.dhis.i18n.I18nManager;
 import org.hisp.dhis.organisationunit.FeatureType;
 import org.hisp.dhis.organisationunit.OrganisationUnit;
-import org.hisp.dhis.program.Program;
-import org.hisp.dhis.program.ProgramInstance;
-import org.hisp.dhis.program.ProgramInstanceQueryParams;
-import org.hisp.dhis.program.ProgramInstanceService;
-import org.hisp.dhis.program.ProgramService;
-import org.hisp.dhis.program.ProgramStageInstance;
-import org.hisp.dhis.program.ProgramStageInstanceService;
-import org.hisp.dhis.program.ProgramStatus;
-import org.hisp.dhis.program.ProgramTrackedEntityAttribute;
+import org.hisp.dhis.program.*;
 import org.hisp.dhis.program.notification.event.ProgramEnrollmentNotificationEvent;
 import org.hisp.dhis.programrule.engine.EnrollmentEvaluationEvent;
 import org.hisp.dhis.query.Query;
@@ -106,9 +94,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
-
+import static org.hisp.dhis.trackedentity.TrackedEntityAttributeService.TEA_VALUE_MAX_LENGTH;
 /**
  * @author Morten Olav Hansen <mortenoh@gmail.com>
  */
@@ -306,19 +294,7 @@ public abstract class AbstractEnrollmentService
         enrollment.setStoredBy( programInstance.getStoredBy() );
         enrollment.setDeleted( programInstance.isDeleted() );
 
-        List<TrackedEntityComment> comments = programInstance.getComments();
-
-        for ( TrackedEntityComment comment : comments )
-        {
-            Note note = new Note();
-
-            note.setNote( comment.getUid() );
-            note.setValue( comment.getCommentText() );
-            note.setStoredBy( comment.getCreator() );
-            note.setStoredDate( DateUtils.getIso8601NoTz( comment.getCreated() ) );
-
-            enrollment.getNotes().add( note );
-        }
+        enrollment.getNotes().addAll( NoteHelper.convertNotes( programInstance.getComments() ) );
 
         if ( params.isIncludeEvents() )
         {
@@ -1227,13 +1203,26 @@ public abstract class AbstractEnrollmentService
                 continue;
             }
 
-            if ( trackedEntityAttribute.isUnique() )
+            // If value is not mandatory, it could be not present
+            if ( attributeValueMap.containsKey( trackedEntityAttribute.getUid() ) )
             {
-                checkAttributeUniquenessWithinScope( trackedEntityInstance, trackedEntityAttribute,
-                    attributeValueMap.get( trackedEntityAttribute.getUid() ), trackedEntityInstance.getOrganisationUnit(), importConflicts );
-            }
+                if ( attributeValueMap.get( trackedEntityAttribute.getUid() ).length() > TEA_VALUE_MAX_LENGTH )
+                {
+                    // We shorten the value to first 25 characters, since we dont want to post a 1200+ string back.
+                    importConflicts.add( new ImportConflict( "Attribute.value", String
+                        .format( "Value exceeds the character limit of %s characters: '%s...'", TEA_VALUE_MAX_LENGTH,
+                            attributeValueMap.get( trackedEntityAttribute.getUid() ).substring( 0, 25 ) ) ) );
+                }
 
-            attributeValueMap.remove( trackedEntityAttribute.getUid() );
+                if ( trackedEntityAttribute.isUnique() )
+                {
+                    checkAttributeUniquenessWithinScope( trackedEntityInstance, trackedEntityAttribute,
+                        attributeValueMap.get( trackedEntityAttribute.getUid() ),
+                        trackedEntityInstance.getOrganisationUnit(), importConflicts );
+                }
+
+                attributeValueMap.remove( trackedEntityAttribute.getUid() );
+            }
         }
 
         if ( !attributeValueMap.isEmpty() )
@@ -1378,7 +1367,8 @@ public abstract class AbstractEnrollmentService
                 TrackedEntityComment comment = new TrackedEntityComment();
                 comment.setUid( noteUid );
                 comment.setCommentText( note.getValue() );
-                comment.setCreator( StringUtils.isEmpty( note.getStoredBy() ) ? Constants.UNKNOWN : note.getStoredBy() );
+                comment
+                    .setCreator( StringUtils.isEmpty( note.getStoredBy() ) ? user.getUsername() : note.getStoredBy() );
 
                 Date created = DateUtils.parseDate( note.getStoredDate() );
 
@@ -1388,6 +1378,9 @@ public abstract class AbstractEnrollmentService
                 }
 
                 comment.setCreated( created );
+
+                comment.setLastUpdatedBy( user );
+                comment.setLastUpdated( new Date() );
 
                 commentService.addTrackedEntityComment( comment );
 

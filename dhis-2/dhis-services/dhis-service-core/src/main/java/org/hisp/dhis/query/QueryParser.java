@@ -1,5 +1,4 @@
 package org.hisp.dhis.query;
-
 /*
  * Copyright (c) 2004-2020, University of Oslo
  * All rights reserved.
@@ -30,6 +29,7 @@ package org.hisp.dhis.query;
 
 import org.hisp.dhis.schema.Property;
 import org.hisp.dhis.schema.Schema;
+import org.hisp.dhis.query.Junction.Type;
 
 import java.util.List;
 
@@ -58,4 +58,7 @@ public interface QueryParser
     Property getProperty( Schema schema, String path ) throws QueryParserException;
 
     Restriction getRestriction( Schema schema, String path, String operator, Object arg ) throws QueryParserException;
+
+    Query parse( Class<?> klass, List<String> filters, Type rootJunction, boolean restrictToCaptureScope )
+        throws QueryParserException;
 }

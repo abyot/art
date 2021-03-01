@@ -1,4 +1,4 @@
-package org.hisp.dhis.common.adapter;
+package org.hisp.dhis.dxf2.events.event;
 
 /*
  * Copyright (c) 2004-2020, University of Oslo
@@ -28,13 +28,32 @@ package org.hisp.dhis.common.adapter;
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import org.hisp.dhis.render.type.ValueTypeRenderingObject;
+import java.io.IOException;
 
-public class ValueRenderTypeDeserialize
-    extends AbstractDeviceRenderTypeMapDeserializer<ValueTypeRenderingObject>
+import org.hisp.dhis.program.UserInfoSnapshot;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+public class EventUtils
 {
-    public ValueRenderTypeDeserialize()
+
+    public static UserInfoSnapshot jsonToUserInfo( String userInfoAsString, ObjectMapper mapper )
     {
-        super( ValueTypeRenderingObject::new );
+        try
+        {
+            if ( org.apache.commons.lang3.StringUtils.isNotEmpty( userInfoAsString ) )
+            {
+                return mapper.readValue( userInfoAsString, UserInfoSnapshot.class );
+            }
+            return null;
+        }
+        catch ( IOException e )
+        {
+            log.error( "Parsing ProgramStageInstanceUserInfo json string failed. String value: " + userInfoAsString );
+            throw new IllegalArgumentException( e );
+        }
     }
 }

@@ -155,8 +155,16 @@ public class HibernateUserStore
         }
 
         hql +=
-            "from User u " +
-            "inner join u.userCredentials uc ";
+            "from User u ";
+
+        if ( count )
+        {
+            hql += "inner join u.userCredentials uc ";
+        }
+        else
+        {
+            hql += "inner join fetch u.userCredentials uc ";
+        }
 
         if ( params.isPrefetchUserGroups() && !count )
         {
@@ -201,8 +209,7 @@ public class HibernateUserStore
         if ( params.getQuery() != null )
         {
             hql += hlp.whereAnd() + " (" +
-                "lower(u.firstName) like :key " +
-                "or lower(u.email) like :key " +
+                "concat(lower(u.firstName),' ',lower(u.surname)) like :key " +
                 "or lower(u.surname) like :key " +
                 "or lower(uc.username) like :key) ";
         }
@@ -347,14 +354,17 @@ public class HibernateUserStore
             }
         }
 
-        if ( params.getFirst() != null )
+        if ( !count )
         {
-            query.setFirstResult( params.getFirst() );
-        }
+            if ( params.getFirst() != null )
+            {
+                query.setFirstResult( params.getFirst() );
+            }
 
-        if ( params.getMax() != null )
-        {
-            query.setMaxResults( params.getMax() ).list();
+            if ( params.getMax() != null )
+            {
+                query.setMaxResults( params.getMax() );
+            }
         }
 
         return query;

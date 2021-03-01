@@ -38,7 +38,11 @@ import org.hisp.dhis.common.BaseIdentifiableObject;
 import org.hisp.dhis.common.DimensionItemType;
 import org.hisp.dhis.common.DxfNamespaces;
 import org.hisp.dhis.common.ObjectStyle;
+import org.hisp.dhis.common.OrganisationUnitAssignable;
 import org.hisp.dhis.common.SystemDefaultMetadataObject;
+import org.hisp.dhis.dataelement.DataElement;
+import org.hisp.dhis.dataset.DataSet;
+import org.hisp.dhis.dataset.DataSetElement;
 import org.hisp.dhis.organisationunit.OrganisationUnit;
 import org.hisp.dhis.period.Period;
 import org.hisp.dhis.schema.annotation.PropertyRange;
@@ -53,7 +57,7 @@ import java.util.Set;
  */
 @JacksonXmlRootElement( localName = "categoryOption", namespace = DxfNamespaces.DXF_2_0 )
 public class CategoryOption
-    extends BaseDimensionalItemObject implements SystemDefaultMetadataObject
+    extends BaseDimensionalItemObject implements SystemDefaultMetadataObject, OrganisationUnitAssignable
 {
     public static final String DEFAULT_NAME = "default";
 
@@ -171,6 +175,68 @@ public class CategoryOption
         }
 
         return false;
+    }
+
+    /**
+     * Gets an adjusted end date, adjusted if this data set has
+     * open periods after the end date.
+     *
+     * @param dataSet the data set to adjust for
+     * @return the adjusted end date
+     */
+    public Date getAdjustedEndDate( DataSet dataSet )
+    {
+        if ( endDate == null || dataSet.getOpenPeriodsAfterCoEndDate() == 0 )
+        {
+            return endDate;
+        }
+
+        return dataSet.getPeriodType().getRewindedDate( endDate, -dataSet.getOpenPeriodsAfterCoEndDate() );
+    }
+
+    /**
+     * Gets an adjusted end date, adjusted if a data element belongs
+     * to any data sets that have open periods after the end date.
+     * If so, it chooses the latest end date.
+     *
+     * @param dataElement the data element to adjust for
+     * @return the adjusted end date
+     */
+    public Date getAdjustedEndDate( DataElement dataElement )
+    {
+        if ( endDate == null )
+        {
+            return null;
+        }
+
+        Date latestAdjustedDate = endDate;
+
+        for ( DataSetElement element : dataElement.getDataSetElements() )
+        {
+            Date adjustedDate = getAdjustedEndDate( element.getDataSet() );
+
+            if ( adjustedDate.after( latestAdjustedDate ) )
+            {
+                latestAdjustedDate = adjustedDate;
+            }
+        }
+
+        return latestAdjustedDate;
+    }
+
+    /**
+     * Gets an adjusted end date for a data set or, if that is not present,
+     * a data element.
+     *
+     * @param dataSet the data set to adjust for
+     * @param dataElement the data element to adjust for
+     * @return the adjusted end date
+     */
+    public Date getAdjustedEndDate( DataSet dataSet, DataElement dataElement )
+    {
+        return dataSet != null
+            ? getAdjustedEndDate( dataSet )
+            : getAdjustedEndDate( dataElement );
     }
 
     // -------------------------------------------------------------------------
@@ -313,3 +379,4 @@ public class CategoryOption
         this.displayFormName = displayFormName;
     }
 }
+

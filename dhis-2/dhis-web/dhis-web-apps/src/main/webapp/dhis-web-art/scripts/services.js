@@ -4,7 +4,7 @@
 
 /* Services */
 
-var artServices = angular.module('artServices', ['ngResource'])
+var artSummaryServices = angular.module('artSummaryServices', ['ngResource'])
 
 .factory('D2StorageService', function(){
     var store = new dhis2.storage.Store({
@@ -101,7 +101,6 @@ var artServices = angular.module('artServices', ['ngResource'])
     };
 })
 
-
 /* Factory to fetch programs */
 .factory('ProgramFactory', function($q, $rootScope, D2StorageService, CommonUtils, orderByFilter) {
 
@@ -167,7 +166,6 @@ var artServices = angular.module('artServices', ['ngResource'])
         }
     };
 })
-
 
 /* factory to fetch and process programValidations */
 .factory('MetaDataFactory', function($q, $rootScope, D2StorageService, orderByFilter) {
@@ -236,89 +234,73 @@ var artServices = angular.module('artServices', ['ngResource'])
 /* service for handling events */
 .service('ArtService', function($http, DHIS2URL, CommonUtils, DateUtils) {
 
-    return {
+    var ArtFunctions = {
+        getAge: function(art, recommendationAtt, implementationAtt){
+            if ( !art || !recommendationAtt || !recommendationAtt || !recommendationAtt.id || !art[recommendationAtt.id]){
+                return;
+            }
+
+            if ( !implementationAtt.id || !art[implementationAtt] ){
+                return DateUtils.getDifference( art[recommendationAtt.id], DateUtils.getToday());
+            }
+
+            return DateUtils.getDifference( art[recommendationAtt.id], art[implementationAtt.id]);
+        },
         get: function(uid){
-            var promise = $http.get(DHIS2URL + '/trackedEntityInstances/' + uid + '.json').then(function (response) {
+            var promise = $http.get(DHIS2URL + '/trackedEntityInstances/' + uid + '.json?fields=*').then(function (response) {
                 return response.data;
             } ,function(error) {
                 return null;
             });
             return promise;
         },
-        getByProgramAndOu: function( program, orgUnit, sortHeader, attributesById, dataElementsById, optionSetsById ){
+        getByProgramAndOu: function( program, orgUnit, sortHeader, filterText, attributesById, dataElementsById, optionSetsById ){
             var promise;
             if( program.id && orgUnit.id ){
                 var order = 'order=created:desc';
                 if ( sortHeader && sortHeader.id ){
                     order = 'order=' + sortHeader.id + ':' + sortHeader.direction;
                 }
+                if ( filterText ){
+                    order += filterText;
+                }
 
-                promise = $http.get(DHIS2URL + '/trackedEntityInstances.json?fields=*&' + order + '&pageSize=50&page=1&totalPages=false&ouMode=SELECTED&ou=' + orgUnit.id + '&program=' + program.id).then(function (response) {
+                promise = $http.get(DHIS2URL + '/trackedEntityInstances/query.json?' + order + '&totalPages=false&ouMode=SELECTED&ou=' + orgUnit.id + '&program=' + program.id).then(function (response) {
                     var arts = [];
-                    var teis = response.data && response.data.trackedEntityInstances ? response.data.trackedEntityInstances : [];
-                    angular.forEach(teis, function(tei){
-                        tei.attributeValues = {};
-                        tei.recommendationStatus = {};
-                        var recommendationDate = null, implementationDate = null;
-                        angular.forEach(tei.attributes, function(atv){
-                            var val = atv.value;
-                            var att = attributesById[atv.attribute];
-                            if( att && att.optionSetValue ){
-                                var optionSet = optionSetsById[att.optionSet.id];
-                                val = CommonUtils.formatDataValue(null, val, att, optionSetsById, 'USER');
-                                if ( optionSet && optionSet.isTrafficLight ){
-                                    tei.trafficLight = atv.value;
-                                }
-                            }
-
-                            if( att.recommendationDate ){
-                                recommendationDate = val;
-                            }
-                            else if( att.implementationDate ){
-                                implementationDate = val;
-                            }
-
-                            tei.attributeValues[atv.attribute] = val;
-                        });
-
-                        if(!implementationDate){
-                            implementationDate = DateUtils.getToday();
-                        }
-                        tei.age = DateUtils.getDifference( recommendationDate, implementationDate);
-
-                        if ( tei.enrollments.length === 1 ){
-                            tei.enrollment = tei.enrollments[0].enrollment;
-                            tei.enrollmentDate = DateUtils.formatFromApiToUser(tei.enrollments[0].enrollmentDate);
-                            var events = tei.enrollments[0].events;
-                            if ( events.length > 0 ){
-                                angular.forEach(events, function(ev){
-                                    ev.values = {};
-                                    ev.eventDate = DateUtils.formatFromApiToUser(ev.eventDate);
-                                    angular.forEach(ev.dataValues, function(dv){
-                                        var val = dv.value;
-                                        var de = attributesById[dv.dataElement];
-                                        if( de && de.optionSetValue ){
-                                            val = CommonUtils.formatDataValue(ev, val, de, optionSetsById, 'USER');
+                    if ( response.data && response.data.headers && response.data.rows ){
+                        var rows = response.data.rows, headers = response.data.headers,
+                            recommendationAttribute = null, implementationAttribute = null;
+                        for (var i = 0; i<rows.length; i++) {
+                            var art = {};
+                            for( var j=0; j<rows[i].length; j++){
+                                var val = rows[i][j];
+                                var att = attributesById[headers[j].name];
+                                if ( att ){
+                                    val = CommonUtils.formatDataValue(null, val, att, optionSetsById, 'USER');
+                                    if( att.optionSetValue ){
+                                        var optionSet = optionSetsById[att.optionSet.id];
+                                        if ( optionSet && optionSet.isTrafficLight ){
+                                            art.trafficLight = rows[i][j];
                                         }
-                                        ev.values[dv.dataElement] = val;
-                                    })
-                                    if( !tei.recommendationStatus[ev.programStage] ){
-                                        tei.recommendationStatus[ev.programStage] = ev;
                                     }
-                                    else{
-                                        tei.recommendationStatus[ev.programStage] = 'invalid';
+
+                                    if( att.recommendationDate ){
+                                        recommendationAttribute = att;
                                     }
-                                });
+                                    else if( att.implementationDate ){
+                                        implementationAttribute = att;
+                                    }
+                                }
+                                art[headers[j].name] = val;
                             }
-                        }
-                        else{
-                           tei.invalidEnrollment = tei.enrollments.length > 1;
-                        }
-                        arts.push( tei );
 
-                        delete tei.attributes;
-                    });
-
+                            art.age = ArtFunctions.getAge(art, recommendationAttribute, implementationAttribute);
+                            art.trackedEntityInstance = art.instance;
+                            art.trackedEntityType = art.te;
+                            art.orgUnit = art.ou;
+                            arts.push( art );
+                        }
+                    }
                     return arts;
                 } ,function(error) {
                     return null;
@@ -342,8 +324,40 @@ var artServices = angular.module('artServices', ['ngResource'])
                 return error.data;
             });
             return promise;
+        },
+        updateEnrollment: function( enrollment ){
+            var promise = $http.put(DHIS2URL + '/enrollments/' + enrollment.enrollment , enrollment).then(function (response) {
+                return response.data;
+            } ,function(error) {
+                return error.data;
+            });
+            return promise;
+        },
+        updateStatus: function( event ){
+            var promise = $http.put(DHIS2URL + '/events/' + event.event , event).then(function (response) {
+                return response.data;
+            } ,function(error) {
+                return error.data;
+            });
+            return promise;
+        },
+        addStatus: function( event ){
+            var promise = $http.post(DHIS2URL + '/events.json', event).then(function (response) {
+                return response.data;
+            } ,function(error) {
+                return error.data;
+            });
+            return promise;
+        },
+        deleteStatus: function( event ){
+            var promise = $http.delete(DHIS2URL + '/events/' + event.event).then(function(response){
+                return response.data;
+            });
+            return promise;
         }
     };
+
+    return ArtFunctions;
 })
 
 /* Service for uploading/downloading file */

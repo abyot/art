@@ -30,12 +30,15 @@ package org.hisp.dhis.sms.config;
 
 import java.io.Serializable;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
+import lombok.EqualsAndHashCode;
 import org.hisp.dhis.sms.config.views.SmsConfigurationViews;
 
 /**
  * @author Zubair <rajazubair.asghar@gmail.com>
  */
+@EqualsAndHashCode( of = { "key","value", "confidential", "encode", "header" } )
 public class GenericGatewayParameter
     implements Serializable
 {
@@ -68,11 +71,6 @@ public class GenericGatewayParameter
     }
 
     public String getValue()
-    {
-        return confidential ? "" : value;
-    }
-
-    public String getDisplayValue()
     {
         return value;
     }

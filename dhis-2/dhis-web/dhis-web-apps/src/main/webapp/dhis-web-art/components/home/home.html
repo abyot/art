@@ -27,7 +27,6 @@
 
 </div>
 
-
 <div class="page" id="mainPage">
     <input type="text" class="form-control" selected-org-unit ng-hide="true" ng-model="selectedOrgUnit.displayName" value="{{selectedOrgUnit.displayName|| pleaseSelectLabel}}" disabled="">
 
@@ -38,97 +37,53 @@
         {{'loading_metadata'| translate}}
     </div>
 
-    <!--<div ng-show="selectedOrgUnit" class="row">
-        <div class="col-sm-6">
-            <ui-select ng-model="model.selectedProgram"
-                    theme="select2"
-                    ng-disabled="isOnAddEditMode()"
-                    style="width:100%;">
-                <ui-select-match allow-clear="true" class="form-control-ui-select" placeholder="{{model.programs && model.programs.length > 0 ? 'select_tracking_program' : 'empty'| translate}}">{{$select.selected.displayName|| $select.selected}}</ui-select-match>
-                <ui-select-choices repeat="program in model.programs | filter: $select.search | limitTo:maxOptionSize | orderBy: 'displayName' ">
-                    <span ng-bind-html="program.displayName | highlight: $select.search"></span>
-                </ui-select-choices>
-            </ui-select>
-        </div>
-        <div class="col-sm-6">
-            <button type="button"
-                    class="btn btn-primary"
-                    ng-disabled="addOrEditArtDenied() || !model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
-                    ng-click="showAddArt()">
-                {{'add_new'| translate}}
-            </button>
-            <button type="button"
-                    class="btn btn-success"
-                    ng-disabled="addOrEditArtDenied() || !model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
-                    ng-click="showImportArt()">
-                {{'import'| translate}}
-            </button>
-            <button type="button"
-                    class="btn btn-warning"
-                    ng-hide="!isOnAddEditMode()"
-                    ng-click="cancelEdit()">
-                {{'back_list'| translate}}
-            </button>
-        </div>
-    </div>-->
-
     <div ng-show="selectedOrgUnit">
 
         <!-- form begins -->
         <form name="outerForm" novalidate autocomplete="off">
             <div class="row">
                 <div class="col-sm-12">
-                    <div equal-height-nav-tabs>
-                        <tabset justified="true">
-                            <tab class="main-horizontal-menu font-18 bold" heading="{{'data_entry'| translate}}">
-
-                            <!--<tab heading="{{horizontalMenu.title| translate}}"
-                                 class="{{getMenuStyle(horizontalMenu)}}"
-                                 ng-repeat="horizontalMenu in model.horizontalMenus"
-                                 active="horizontalMenu.active"
-                                 ng-click="resetView(horizontalMenu, $event)">
-                                <div ng-include="horizontalMenu.view"></div>
-                            </tab>-->
-                                <div class="row vertical-spacing">
-                                    <div class="col-sm-6">
-                                        <ui-select ng-model="model.selectedProgram"
-                                                theme="select2"
-                                                ng-disabled="isOnAddEditMode()"
-                                                style="width:100%;">
-                                            <ui-select-match allow-clear="true" class="form-control-ui-select" placeholder="{{model.programs && model.programs.length > 0 ? 'select_tracking_program' : 'empty'| translate}}">{{$select.selected.displayName|| $select.selected}}</ui-select-match>
-                                            <ui-select-choices repeat="program in model.programs | filter: $select.search | limitTo:maxOptionSize | orderBy: 'displayName' ">
-                                                <span ng-bind-html="program.displayName | highlight: $select.search"></span>
-                                            </ui-select-choices>
-                                        </ui-select>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <button type="button"
-                                                class="btn btn-primary"
-                                                ng-disabled="addOrEditArtDenied() || !model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
-                                                ng-click="showAddArt()">
-                                            {{'add_new'| translate}}
-                                        </button>
-                                        <button type="button"
-                                                class="btn btn-success"
-                                                ng-disabled="addOrEditArtDenied() || !model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
-                                                ng-click="showImportArt()">
-                                            {{'import'| translate}}
-                                        </button>
-                                        <button type="button"
-                                                class="btn btn-warning"
-                                                ng-hide="!isOnAddEditMode()"
-                                                ng-click="cancelEdit()">
-                                            {{'back_list'| translate}}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div ng-include="'components/home/art-forms.html'"></div>
-                            </tab>
-                            <tab class="main-horizontal-menu font-18 bold" heading="{{'reports'| translate}}">
-                                <div ng-include="'components/home/art-forms.html'"></div>
-                            </tab>
-                        </tabset>
+                    <div class="row vertical-spacing hideInPrint">
+                        <div class="col-sm-6">
+                            <ui-select ng-model="model.selectedProgram"
+                                    theme="select2"
+                                    ng-disabled="isOnAddEditMode()"
+                                    style="width:100%;">
+                                <ui-select-match allow-clear="true" class="form-control-ui-select" placeholder="{{model.programs && model.programs.length > 0 ? 'select_tracking_program' : 'empty'| translate}}">{{$select.selected.displayName|| $select.selected}}</ui-select-match>
+                                <ui-select-choices repeat="program in model.programs | filter: $select.search | limitTo:maxOptionSize | orderBy: 'displayName' ">
+                                    <span ng-bind-html="program.displayName | highlight: $select.search"></span>
+                                </ui-select-choices>
+                            </ui-select>
+                        </div>
+                        <div class="col-sm-6">
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    ng-disabled="addOrEditArtDenied() || !model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
+                                    ng-click="showAddArt()">
+                                {{'add_new'| translate}}
+                            </button>
+                            <button type="button"
+                                    class="btn btn-success"
+                                    ng-disabled="addOrEditArtDenied() || !model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
+                                    ng-click="showImportArt()">
+                                {{'import'| translate}}
+                            </button>
+                            <button type="button"
+                                    class="btn btn-default"
+                                    ng-if="!model.displaySearchArt"
+                                    ng-disabled="addOrEditArtDenied() || !model.selectedProgram || !selectedOrgUnit || isOnAddEditMode()"
+                                    ng-click="showSearchArt()">
+                                {{'search'| translate}}
+                            </button>
+                            <button type="button"
+                                    class="btn btn-warning"
+                                    ng-hide="!isOnAddEditMode()"
+                                    ng-click="cancelEdit()">
+                                {{'back_list'| translate}}
+                            </button>
+                        </div>
                     </div>
+                    <div ng-include="'components/home/art-forms.html'"></div>
                 </div>
             </div>
         </form>

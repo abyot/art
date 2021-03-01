@@ -32,6 +32,7 @@ import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.Location;
 import org.flywaydb.core.api.configuration.ClassicConfiguration;
 import org.hisp.dhis.db.migration.helper.NoOpFlyway;
+import org.hisp.dhis.external.conf.ConfigurationKey;
 import org.hisp.dhis.external.conf.DhisConfigurationProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -39,7 +40,10 @@ import org.springframework.context.annotation.Profile;
 
 import javax.sql.DataSource;
 
+import java.util.HashMap;
+
 import static org.hisp.dhis.external.conf.ConfigurationKey.FLYWAY_OUT_OF_ORDER_MIGRATION;
+import static org.hisp.dhis.external.conf.ConfigurationKey.FLYWAY_REPAIR_BEFORE_MIGRATION;
 
 /**
  * @author Luciano Fiandesio
@@ -62,10 +66,19 @@ public class FlywayConfig
             Boolean.parseBoolean( configurationProvider.getProperty( FLYWAY_OUT_OF_ORDER_MIGRATION ) ) );
         classicConfiguration.setIgnoreMissingMigrations( true );
         classicConfiguration.setIgnoreFutureMigrations( false );
-        classicConfiguration.setGroup( false );
+        classicConfiguration.setGroup( true );
         classicConfiguration.setLocations( new Location( FLYWAY_MIGRATION_FOLDER ) );
+        classicConfiguration.setMixed( true );
 
-        return new Flyway( classicConfiguration );
+        /*
+         * This placeHolder is to be used by V2_33_26__Fix_encryption_issue_for_TEI_attributeValues
+         */
+        HashMap<String, String> placeHolders = new HashMap<>();
+        placeHolders.put( "encryption.password", configurationProvider.getProperty( ConfigurationKey.ENCRYPTION_PASSWORD ) );
+        classicConfiguration.setPlaceholders( placeHolders );
+
+        return new DhisFlyway( classicConfiguration,
+            Boolean.parseBoolean( configurationProvider.getProperty( FLYWAY_REPAIR_BEFORE_MIGRATION ) ) );
 
     }
 

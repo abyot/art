@@ -33,6 +33,8 @@ import org.hisp.dhis.dxf2.metadata.objectbundle.ObjectBundle;
 import org.hisp.dhis.option.OptionSet;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
+
 @Component
 public class OptionSetObjectBundleHook
     extends AbstractObjectBundleHook
@@ -61,13 +63,13 @@ public class OptionSetObjectBundleHook
 
     private void updateOption( OptionSet optionSet )
     {
-        if ( optionSet.getOptions() != null && !optionSet.getOptions().isEmpty() )
+        if ( optionSet.getOptions() == null || optionSet.getOptions().isEmpty() )
         {
             return;
         }
 
-        optionSet.getOptions().forEach( option -> {
-
+        optionSet.getOptions().stream().filter( Objects::nonNull ).forEach( option ->
+        {
             if ( option.getOptionSet() == null )
             {
                 option.setOptionSet( optionSet );

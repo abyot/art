@@ -7,6 +7,8 @@ art.controller('HomeController',
         function($scope,
                 $timeout,
                 $translate,
+                $modal,
+                $filter,
                 NotificationService,
                 SessionStorageService,
                 ArtService,
@@ -68,10 +70,6 @@ art.controller('HomeController',
                         $scope.model.trackedEntityAttributes = [];
                         MetaDataFactory.getAll('trackedEntityAttributes').then(function(teas){
                             angular.forEach(teas, function(tea){
-                                if ( tea.recommendationDate ){
-                                    $scope.model.recommendationDate = tea;
-                                    $scope.model.sortHeader = {id: tea.id, direction: 'desc'};
-                                }
                                 $scope.model.trackedEntityAttributes[tea.id] = tea;
                             });
 
@@ -156,56 +154,103 @@ art.controller('HomeController',
         if( $scope.model.selectedProgram && $scope.model.selectedProgram.id ){
             $scope.model.voteColumn = {id: $scope.selectedOrgUnit.id, displayName: $translate.instant('vote_number')};
             $scope.model.artHeaders = [];
+            $scope.filterText = {};
             $scope.model.programStageDataElements = null;
             $scope.model.trackedEntityAccess =  CommonUtils.userHasWriteAccess( 'ACCESSIBLE_TRACKEDENTITYTYPE', $scope.model.selectedProgram.trackedEntityType.id);
+
+
             angular.forEach($scope.model.selectedProgram.programTrackedEntityAttributes, function(pat){
                 if( pat.trackedEntityAttribute && pat.trackedEntityAttribute.id ){
                     var tea = $scope.model.trackedEntityAttributes[pat.trackedEntityAttribute.id];
                     if( tea ){
+                        tea.filterWithRange = false;
+                        if ( tea.valueType === 'DATE' ||
+                            tea.valueType === 'NUMBER' ||
+                            tea.valueType === 'INTEGER' ||
+                            tea.valueType === 'INTEGER_POSITIVE' ||
+                            tea.valueType === 'INTEGER_NEGATIVE' ||
+                            tea.valueType === 'INTEGER_ZERO_OR_POSITIVE' ){
+                            tea.filterWithRange = true;
+                            $scope.filterText[tea.id] = {};
+                        }
                         tea.displayInList = pat.displayInList;
+                        tea.mandatory = pat.mandatory;
+                        tea.show = tea.displayInList;
+
+
                         $scope.model.artHeaders.push(tea);
+
+                        if ( tea.unique ){
+                            $scope.model.sortHeader = {id: tea.id, direction: 'asc'};
+                        }
+                        if ( tea.recommendationDate ){
+                            $scope.model.recommendationDate = tea;
+                        }
+                        else if( tea.implementationDate ){
+                            $scope.model.implementationDate = tea;
+                        }
                     }
                 }
             });
-            $scope.fetchRecommendations($scope.model.sortHeader);
+
+            if ( !$scope.model.recommendationDate || !$scope.model.implementationDate ){
+                NotificationService.showNotifcationDialog($translate.instant("error"), $translate.instant("invalid_metadata_config") );
+                return;
+            }
+            $scope.fetchRecommendations();
         }
     };
 
     //fetch recommendations for selected orgunit and program combination
-    $scope.fetchRecommendations = function( sortHeader ){
+    $scope.fetchRecommendations = function(){
         if( $scope.selectedOrgUnit && $scope.selectedOrgUnit.id && $scope.model.selectedProgram && $scope.model.selectedProgram.id ){
-            ArtService.getByProgramAndOu($scope.model.selectedProgram, $scope.selectedOrgUnit, sortHeader, $scope.model.trackedEntityAttributes, $scope.model.dataElementsById, $scope.model.optionSets).then(function(teis){
-                $scope.model.arts = teis;
+            //DESCENDANTS
+            ArtService.getByProgramAndOu($scope.model.selectedProgram, $scope.selectedOrgUnit, $scope.model.sortHeader, $scope.filterParam, $scope.model.trackedEntityAttributes, $scope.model.dataElementsById, $scope.model.optionSets).then(function(arts){
+                $scope.model.arts = arts;
             });
         }
     };
 
     $scope.showAddArt = function(){
         $scope.model.displayAddArt = true;
+        $scope.model.art = {};
+    };
+
+    $scope.showSearchArt = function(){
+        $scope.model.displaySearchArt = true;
     };
 
     $scope.addArt = function(){
         //check for form validity
         $scope.outerForm.submitted = true;
         if( $scope.outerForm.$invalid ){
+            NotificationService.showNotifcationDialog($translate.instant("error"), $translate.instant("form_is_not_valid") );
             return false;
         }
 
+        var rDate = DateUtils.formatFromUserToApi($scope.model.art[$scope.model.recommendationDate.id]);
         var tei = {
             trackedEntityType: $scope.model.selectedProgram.trackedEntityType.id,
             orgUnit: $scope.selectedOrgUnit.id,
             enrollments: [
                 {
                     program: $scope.model.selectedProgram.id,
-                    enrollmentDate: DateUtils.formatFromUserToApi(DateUtils.getToday()),
+                    enrollmentDate: rDate,
                     orgUnit: $scope.selectedOrgUnit.id,
-                    trackedEntityType: $scope.model.selectedProgram.trackedEntityType.id
+                    trackedEntityType: $scope.model.selectedProgram.trackedEntityType.id,
+                    events: [
+                        {
+                            program: $scope.model.selectedProgram.id,
+                            programStage: $scope.model.selectedProgram.programStages[0].id,
+                            orgUnit: $scope.selectedOrgUnit.id,
+                            eventDate: rDate
+                        }
+                    ]
                 }
             ],
             attributes: []
         };
 
-        var art = {attributeValues: {}};
         angular.forEach($scope.model.selectedProgram.programTrackedEntityAttributes, function(pat){
             var value = $scope.model.art[pat.trackedEntityAttribute.id];
             var tea = $scope.model.trackedEntityAttributes[pat.trackedEntityAttribute.id];
@@ -214,12 +259,11 @@ art.controller('HomeController',
             if ( tea.optionSetValue ){
                 var optionSet = $scope.model.optionSets[tea.optionSet.id];
                 if ( optionSet && optionSet.isTrafficLight ){
-                    art.trafficLight = value;
+                    $scope.model.art.trafficLight = value;
                 }
             }
 
             if ( value ){
-                art.attributeValues[pat.trackedEntityAttribute.id] = $scope.model.art[pat.trackedEntityAttribute.id];
                 tei.attributes.push({
                     attribute: tea.id,
                     value: value
@@ -233,21 +277,105 @@ art.controller('HomeController',
                 return;
             }
             else{
-                $scope.model.arts.splice(0,0,art);
+                $scope.model.art.age = ArtService.getAge( $scope.model.art, $scope.model.recommendationDate, $scope.model.implementationDate);
+                $scope.model.arts.splice(0,0,$scope.model.art);
             }
             $scope.cancelEdit();
         });
     };
 
-    $scope.showEditArt = function(art){
+    $scope.searchArt = function(){
+
+        $scope.filterParam = '';
+        var filterExists = false;
+        angular.forEach($scope.model.artHeaders, function(header){
+            if ( $scope.filterText[header.id] ){
+                if ( header.optionSetValue ){
+                    if( $scope.filterText[header.id].length > 0  ){
+                        var filters = $scope.filterText[header.id].map(function(filt) {return filt.code;});
+                        if( filters.length > 0 ){
+                            $scope.filterParam += '&filter=' + header.id + ':IN:' + filters.join(';');
+                            filterExists = true;
+                        }
+                    }
+                }
+                else if ( header.filterWithRange ){
+                    if( $scope.filterText[header.id].start && $scope.filterText[header.id].start !== "" || $scope.filterText[header.id].end && $scope.filterText[header.id].end !== ""){
+                        $scope.filterParam += '&filter=' + header.id;
+                        if( $scope.filterText[header.id].start ){
+                            $scope.filterParam += ':GT:' + $scope.filterText[header.id].start;
+                            filterExists = true;
+                        }
+                        if( $scope.filterText[header.id].end ){
+                            $scope.filterParam += ':LT:' + $scope.filterText[header.id].end;
+                            filterExists = true;
+                        }
+                    }
+                }
+                else{
+                    $scope.filterParam += '&filter=' + header.id + ':like:' + $scope.filterText[header.id];
+                    filterExists = true;
+                }
+            }
+        });
+
+        if ( filterExists ){
+            $scope.fetchRecommendations();
+            $scope.model.displaySearchArt = false;
+        }
+        else{
+            NotificationService.showNotifcationDialog($translate.instant("error"), $translate.instant("search_param_empty") );
+            return false;
+        }
+    };
+
+    $scope.removeStartFilterText = function(gridColumnId){
+        $scope.filterText[gridColumnId].start = undefined;
+    };
+
+    $scope.removeEndFilterText = function(gridColumnId){
+        $scope.filterText[gridColumnId].end = undefined;
+    };
+
+    $scope.resetFilter = function(){
+        $scope.filterText = angular.copy($scope.emptyFilterText);
+        $scope.filterArts(null, true);
+    };
+
+    $scope.showEditArt = function(selectedArt){
         $scope.model.displayEditArt = true;
-        $scope.model.art = angular.copy(art);
-        $scope.model.originalArt = angular.copy(art);
-        if ( $scope.model.selectedProgram.programStages && $scope.model.selectedProgram.programStages.length > 0 ){
+        $scope.model.art = angular.copy(selectedArt);
+        $scope.model.originalArt = angular.copy(selectedArt);
+        if ( selectedArt && selectedArt.instance && $scope.model.selectedProgram.programStages && $scope.model.selectedProgram.programStages.length > 0 ){
             $scope.model.selectedStage = $scope.model.selectedProgram.programStages[0];
-            $scope.model.selectedEvent = angular.copy($scope.model.art.recommendationStatus[$scope.model.selectedStage.id]);
-            $scope.model.originalEvent = angular.copy($scope.model.art.recommendationStatus[$scope.model.selectedStage.id]);
-            console.log('selected event:  ', $scope.model.selectedEvent);
+
+            ArtService.get(selectedArt.instance).then(function(tei){
+                if ( tei.enrollments.length === 1 ){
+                    $scope.model.selectedEnrollment = tei.enrollments[0];
+                    $scope.model.selectedEnrollment.enrollmentDate = DateUtils.formatFromApiToUser($scope.model.selectedEnrollment.enrollmentDate);
+                    $scope.model.art.enrollment = $scope.model.selectedEnrollment.enrollment;
+                    $scope.model.art.enrollmentDate = DateUtils.formatFromApiToUser($scope.model.selectedEnrollment.enrollmentDate);
+
+                    $scope.model.art.status = [];
+                    if ( tei.enrollments[0].events && tei.enrollments[0].events.length > 0 ){
+                        angular.forEach(tei.enrollments[0].events, function(ev){
+                            ev.values = {};
+                            ev.eventDate = DateUtils.formatFromApiToUser(ev.eventDate);
+                            angular.forEach(ev.dataValues, function(dv){
+                                var val = dv.value;
+                                var de = $scope.model.dataElementsById[dv.dataElement];
+                                val = CommonUtils.formatDataValue(ev, val, de, $scope.model.optionSets, 'USER');
+                                ev.values[dv.dataElement] = val;
+                            });
+                            $scope.model.art.status.push( ev );
+                        });
+                    }
+                }
+                else{
+                    NotificationService.showNotifcationDialog($translate.instant("error"), $translate.instant("invalid_tracking_information") );
+                    return;
+                }
+            });
         }
     };
 
@@ -255,6 +383,7 @@ art.controller('HomeController',
         //check for form validity
         $scope.outerForm.submitted = true;
         if( $scope.outerForm.$invalid ){
+            NotificationService.showNotifcationDialog($translate.instant("error"), $translate.instant("form_is_not_valid") );
             return false;
         }
 
@@ -262,33 +391,22 @@ art.controller('HomeController',
             trackedEntityType: $scope.model.art.trackedEntityType,
             trackedEntityInstance: $scope.model.art.trackedEntityInstance,
             orgUnit: $scope.model.art.orgUnit,
-            enrollments: [
-                {
-                    enrollment: $scope.model.art.enrollment,
-                    program: $scope.model.selectedProgram.id,
-                    enrollmentDate: DateUtils.formatFromUserToApi($scope.model.art.enrollmentDate),
-                    orgUnit: $scope.selectedOrgUnit.id,
-                    trackedEntityType: $scope.model.selectedProgram.trackedEntityType.id
-                }
-            ],
             attributes: []
         };
 
-        var art = {attributeValues: {}};
         angular.forEach($scope.model.selectedProgram.programTrackedEntityAttributes, function(pat){
-            var value = $scope.model.art.attributeValues[pat.trackedEntityAttribute.id];
+            var value = $scope.model.art[pat.trackedEntityAttribute.id];
             var tea = $scope.model.trackedEntityAttributes[pat.trackedEntityAttribute.id];
             value = CommonUtils.formatDataValue(null, value, tea, $scope.model.optionSets, 'API');
 
             if ( tea.optionSetValue ){
                 var optionSet = $scope.model.optionSets[tea.optionSet.id];
                 if ( optionSet && optionSet.isTrafficLight ){
-                    art.trafficLight = value;
+                    $scope.model.art.trafficLight = value;
                 }
             }
 
             if ( value ){
-                art.attributeValues[pat.trackedEntityAttribute.id] = $scope.model.art.attributeValues[pat.trackedEntityAttribute.id];
                 tei.attributes.push({
                     attribute: tea.id,
                     value: value
@@ -296,12 +414,21 @@ art.controller('HomeController',
             }
         });
 
+        if ( $scope.model.selectedEnrollment.enrollmentDate !==  $scope.model.art[$scope.model.recommendationDate.id] ){
+            var en = $scope.model.selectedEnrollment;
+            en.enrollmentDate = DateUtils.formatFromUserToApi($scope.model.art[$scope.model.recommendationDate.id]);
+            ArtService.updateEnrollment(en).then(function(){
+            });
+        }
+
         ArtService.update(tei, $scope.model.selectedProgram.id).then(function(data){
             if( data.response.status==='ERROR' ){
                 NotificationService.showNotifcationDialog($translate.instant("error"), $translate.instant("operation_failed") + data.response.description );
                 return;
             }
             else{
+
+                $scope.model.art.age = ArtService.getAge( $scope.model.art, $scope.model.recommendationDate, $scope.model.implementationDate);
                 var index = -1;
                 for( var i=0; i<$scope.model.arts.length; i++){
                     if( $scope.model.arts[i].trackedEntityInstance === $scope.model.art.trackedEntityInstance ){
@@ -311,39 +438,50 @@ art.controller('HomeController',
                 }
                 if ( index !== -1 ){
                     $scope.model.arts.splice(index,1);
-                    $scope.model.arts.splice(0,0,art);
+                    $scope.model.arts.splice(0,0,$scope.model.art);
                 }
                 else{
-                    $scope.model.arts.splice(0,0,art);
+                    $scope.model.arts.splice(0,0,$scope.model.art);
                 }
             }
             $scope.showEditProfile();
         });
+
     };
 
-    $scope.saveStatus = function(){
-        console.log('trying to save status ...');
-        //check for form validity
-        $scope.outerForm.submitted = true;
-        if( $scope.outerForm.$invalid ){
-            console.log('form is invalid ...');
-            return false;
-        }
+    $scope.showRecordAction = function( selectedEvent ){
 
-        console.log('need to save status here ...', $scope.model.selectedEvent);
-    };
+        var modalInstance = $modal.open({
+            templateUrl: 'components/status/art-status.html',
+            controller: 'StatusController',
+            resolve: {
+                art: function(){
+                    return angular.copy($scope.model.art);
+                },
+                selectedEvent: function(){
+                    return angular.copy(selectedEvent);
+                },
+                stage: function(){
+                    return $scope.model.selectedStage;
+                },
+                program: function(){
+                    return $scope.model.selectedProgram;
+                },
+                enrollment: function(){
+                    return $scope.model.selectedEnrollment;
+                },
+                dataElementsById: function(){
+                    return $scope.model.dataElementsById;
+                },
+                optionSetsById: function(){
+                    return $scope.model.optionSets;
+                }
+            }
+        });
 
-    $scope.setSelectedStage = function( stage ){
-        $scope.resetForm();
-        $scope.model.selectedStage = stage;
-        $scope.model.originalEvent = {};
-        if ( $scope.model.art.recommendationStatus[stage.id] ){
-            $scope.model.selectedEvent = angular.copy($scope.model.art.recommendationStatus[stage.id]);
-            $scope.model.originalEvent = angular.copy($scope.model.art.recommendationStatus[stage.id]);
-        }
-        else{
-            $scope.model.selectedEvent = {};
-        }
+        modalInstance.result.then(function( art ) {
+            $scope.model.art = angular.copy(art);
+        });
     };
 
     $scope.showImportArt = function(){
@@ -359,16 +497,14 @@ art.controller('HomeController',
         if(field){
             status = $scope.outerForm.submitted || field.$dirty;
         }
-
-        console.log('outerform....', $scope.outerform);
         return status;
     };
 
     $scope.cancelEdit = function(){
+        $scope.model.art = angular.copy($scope.model.originalArt);
         $scope.model.displayAddArt = false;
         $scope.model.displaImportArt = false;
         $scope.model.displayEditArt = false;
-        $scope.model.art = {};
         $scope.model.inputFile = null;
         $scope.model.excelData = null;
         $scope.model.excelRows = [];
@@ -376,6 +512,13 @@ art.controller('HomeController',
         $scope.model.selectedSheet = null;
         $scope.model.parsingStarted = false;
         $scope.model.parsingFinished = true;
+    };
+
+    $scope.cancelSearch = function(){
+        $scope.model.displaySearchArt = false;
+        $scope.filterParam = '';
+        $scope.resetForm();
+        $scope.fetchRecommendations();
     };
 
     $scope.showEditProfile = function(){
@@ -417,18 +560,15 @@ art.controller('HomeController',
     };
 
     $scope.sortItems = function( header ){
-        console.log('sorting...', header.id, ' - ', $scope.model.sortHeader.id );
         $scope.reverse = ($scope.model.sortHeader && $scope.model.sortHeader.id === header.id) ? !$scope.reverse : false;
-        var direction = 'desc';
+        var direction = 'asc';
         if ( $scope.model.sortHeader.id === header.id ){
-            console.log('am I here ... 0');
             if ( $scope.model.sortHeader.direction === direction ){
-                console.log('am I here ... 1');
-                direction = 'asc';
+                direction = 'desc';
             }
         }
         $scope.model.sortHeader = {id: header.id, direction: direction};
-        $scope.fetchRecommendations( $scope.model.sortHeader );
+        $scope.fetchRecommendations();
     };
 
     $scope.assignColumnToModel = function( column ){
@@ -512,5 +652,36 @@ art.controller('HomeController',
         });
 
         return unAssignedHeaders;
+    };
+
+    $scope.showHideColumns = function(){
+        var modalInstance = $modal.open({
+            templateUrl: 'views/column-modal.html',
+            controller: 'ColumnDisplayController',
+            resolve: {
+                gridColumns: function () {
+                    return $scope.model.artHeaders;
+                },
+                hiddenGridColumns: function(){
+                    return ($filter('filter')($scope.model.artHeaders, {show: false})).length;
+                }
+            }
+        });
+
+        modalInstance.result.then(function (gridColumns) {
+            $scope.model.artHeaders = gridColumns;
+        });
+    };
+
+    $scope.exportData = function ( name ) {
+        var blob = new Blob([document.getElementById('exportTable').innerHTML], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8"
+        });
+
+        var reportName = "recommendation-list.xls";
+        if( name ){
+            reportName = name + '.xls';
+        }
+        saveAs(blob, reportName);
     };
 });

@@ -34,6 +34,7 @@ import org.hisp.dhis.cache.HibernateCacheManager;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -261,6 +262,7 @@ public class HibernateDbmsManager
         emptyTable( "programinstance" );
         emptyTable( "programnotificationtemplate" );
         emptyTable( "programstagedataelement" );
+        emptyTable( "programstagesection" );
         emptyTable( "programstage" );
         emptyTable( "program_organisationunits" );
         emptyTable( "programusergroupaccesses" );
@@ -385,6 +387,7 @@ public class HibernateDbmsManager
     }
 
     @Override
+    @Transactional //TODO need to be fixed as this reduces performance
     public void clearSession()
     {
         sessionFactory.getCurrentSession().flush();
@@ -477,7 +480,7 @@ public class HibernateDbmsManager
     {
         try
         {
-            jdbcTemplate.update( "update relationshipitem set relationshipid = null; delete from relationship; delete from relationshipitem" );
+            jdbcTemplate.update( "update relationshipitem set relationshipid = null; delete from relationship; delete from relationshipitem; update relationshiptype set from_relationshipconstraintid = null,to_relationshipconstraintid = null; delete from relationshipconstraint; delete from relationshiptype;" );
         }
         catch ( BadSqlGrammarException ex )
         {

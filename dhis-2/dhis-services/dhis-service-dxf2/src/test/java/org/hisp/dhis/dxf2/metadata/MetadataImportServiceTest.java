@@ -57,6 +57,7 @@ import org.hisp.dhis.node.types.RootNode;
 import org.hisp.dhis.program.Program;
 import org.hisp.dhis.program.ProgramStage;
 import org.hisp.dhis.program.ProgramStageSection;
+import org.hisp.dhis.program.ProgramStageService;
 import org.hisp.dhis.query.Query;
 import org.hisp.dhis.render.DeviceRenderTypeMap;
 import org.hisp.dhis.render.RenderDevice;
@@ -100,6 +101,9 @@ public class MetadataImportServiceTest extends DhisSpringTest
 
     @Autowired
     private DataSetService dataSetService;
+
+    @Autowired
+    private ProgramStageService programStageService;
 
     @Autowired
     private NodeService nodeService;
@@ -288,6 +292,13 @@ public class MetadataImportServiceTest extends DhisSpringTest
         assertEquals( user.getUid(), visualization.getUserAccesses().iterator().next().getUserUid() );
         assertEquals( userGroup.getUid(), visualization.getUserGroupAccesses().iterator().next().getUserGroupUid() );
 
+        Visualization dataElementOperandVisualization = manager.get( Visualization.class, "qD72aBqsHvt" );
+        assertNotNull( dataElementOperandVisualization );
+        assertEquals( 2, dataElementOperandVisualization.getDataDimensionItems().size() );
+        dataElementOperandVisualization.getDataDimensionItems()
+            .stream()
+            .forEach( item -> assertNotNull( item.getDataElementOperand() ) );
+
         metadata = renderService.fromMetadata(
             new ClassPathResource( "dxf2/favorites/metadata_visualization_with_accesses_update.json" ).getInputStream(),
             RenderFormat.JSON );
@@ -446,6 +457,61 @@ public class MetadataImportServiceTest extends DhisSpringTest
     }
 
     @Test
+    public void testMetadataImportWithDeletedProgramStageSection()
+        throws IOException
+    {
+        Map<Class<? extends IdentifiableObject>, List<IdentifiableObject>> metadata = renderService.fromMetadata(
+            new ClassPathResource( "dxf2/programstage_with_sections.json" ).getInputStream(), RenderFormat.JSON );
+
+        MetadataImportParams params = new MetadataImportParams();
+        params.setImportMode( ObjectBundleMode.COMMIT );
+        params.setImportStrategy( ImportStrategy.CREATE_AND_UPDATE );
+        params.setObjects( metadata );
+
+        ImportReport report = importService.importMetadata( params );
+        assertEquals( Status.OK, report.getStatus() );
+
+        ProgramStage programStage = programStageService.getProgramStage( "NpsdDv6kKSO" );
+
+        assertNotNull( programStage.getProgramStageSections() );
+
+        assertNotNull( manager.get( ProgramStageSection.class, "JwcV2ZifEQf" ) );
+
+        metadata = renderService.fromMetadata(
+            new ClassPathResource( "dxf2/programstage_with_removed_section.json" ).getInputStream(),
+            RenderFormat.JSON );
+        params.setImportMode( ObjectBundleMode.COMMIT );
+        params.setImportStrategy( ImportStrategy.CREATE_AND_UPDATE );
+        params.setObjects( metadata );
+        params.setMetadataSyncImport( true );
+
+        report = importService.importMetadata( params );
+        assertEquals( Status.OK, report.getStatus() );
+
+        programStage = manager.get( ProgramStage.class, "NpsdDv6kKSO" );
+
+        assertEquals( 1, programStage.getProgramStageSections().size() );
+
+        assertNull( manager.get( ProgramStageSection.class, "JwcV2ZifEQf" ) );
+
+        metadata = renderService.fromMetadata(
+            new ClassPathResource( "dxf2/programstage_with_all_section_removed.json" ).getInputStream(),
+            RenderFormat.JSON );
+        params.setImportMode( ObjectBundleMode.COMMIT );
+        params.setImportStrategy( ImportStrategy.CREATE_AND_UPDATE );
+        params.setObjects( metadata );
+        params.setMetadataSyncImport( true );
+
+        report = importService.importMetadata( params );
+        assertEquals( Status.OK, report.getStatus() );
+
+        programStage = manager.get( ProgramStage.class, "NpsdDv6kKSO" );
+
+        assertEquals( true, programStage.getProgramStageSections().isEmpty() );
+
+    }
+
+    @Test
     public void testMetadataImportWithDeletedDataElements()
         throws IOException
     {
@@ -574,7 +640,6 @@ public class MetadataImportServiceTest extends DhisSpringTest
         OutputStream outputStream = new ByteArrayOutputStream();
 
         nodeService.serialize( rootNode, "application/xml", outputStream );
-
         assertEquals( "1", xpathTest( "count(//d:programStageSection)", outputStream.toString() ) );
         assertEquals( "SEQUENTIAL", xpathTest( "//d:MOBILE/@type", outputStream.toString() ) );
         assertEquals( "LISTING", xpathTest( "//d:DESKTOP/@type", outputStream.toString() ) );
