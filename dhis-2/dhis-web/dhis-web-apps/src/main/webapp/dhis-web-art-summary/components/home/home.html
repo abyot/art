@@ -1,5 +1,5 @@
 <span id="showLeftBar" class="hideInPrint">
-    <a href="javascript:dhis2.leftBar.showAnimated()" title="$i18n.getString('show_menu' )"><i class="fa fa-arrow-right leftBarIcon"></i></a>
+    <a href="javascript:dhis2.leftBar.showAnimated()" title="{{'show_menu'| translate}}"><i class="fa fa-arrow-right leftBarIcon"></i></a>
 </span>
 
 <div id="leftBar">
@@ -10,8 +10,7 @@
     </div>
 
     <div ng-show="model.metaDataCached">
-        <div ng-include="'views/left-bar-icons.html'"></div>
-        <div ng-include="'views/left-bar-menu.html'"></div>
+        <div ng-include="'views/left-bar.html'"></div>
     </div>
 
 </div>
@@ -24,12 +23,8 @@
     </div>
 
     <div ng-show="model.metaDataCached">
-        <div class="col-sm-12" ng-if="model.selectedMenu && model.selectedMenu.view">
-            <div ng-include="model.selectedMenu .view"></div>
-        </div>
-        <div class="col-sm-12" ng-if="!model.selectedMenu || !model.selectedMenu.view">
-            <div ng-include="'views/landing-page.html'"></div>
-        </div>
+        <div ng-if="model.selectedMenu && model.selectedMenu.view" ng-include="model.selectedMenu .view"></div>
+        <div ng-if="!model.selectedMenu || !model.selectedMenu.view" ng-include="'views/landing-page.html'"></div>
     </div>
 
 </div>
