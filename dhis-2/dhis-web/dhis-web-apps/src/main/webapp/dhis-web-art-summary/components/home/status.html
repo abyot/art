@@ -1,5 +1,5 @@
 <h4>
-    {{'art_summary' | translate}}
+    {{'art_status' | translate}}
 </h4>
 <div class="small-vertical-spacing hideInPrint">
     <div class="selection-group">
@@ -24,8 +24,8 @@
                     <button type="button"
                             ng-disabled="!model.selectedProgram"
                             class="btn btn-primary"
-                            ng-click="search()">
-                        {{'display_summary'| translate}}
+                            ng-click="getAnalyticsData()">
+                        {{'display_report'| translate}}
                     </button>
                 </div>
             </div>
@@ -33,35 +33,5 @@
         <div class="col-sm-5 blue-info-area add-small-left-padding">
             <div ng-include="'components/report/report-filters.html'"></div>
         </div>
-    </div>
-</div>
-<div class="row" ng-if="model.arts.length > 0">
-    <div class="col-sm-6">
-        <table class="table table-bordered dhis2-table-hover table-responsive">
-            <thead>
-                <tr>
-                    <th class="vertical-center cursor-pointer" ng-repeat="header in model.summaryHeaders">
-                        <span ng-attr-title="{{'sort' | translate}}"  ng-click="setSortHeader(header)">
-                            {{header.displayName}}
-
-                            <!-- sort icon begins -->
-                            <span class="fa-stack hideInPrint">
-                                <span ng-class="{true: 'alert-danger'} [model.sortHeader.id === header.id && !model.sortHeader.reverse]"><i class="fa fa-sort-asc fa-stack-1x"></i></span>
-                                <span ng-class="{true: 'alert-danger'} [model.sortHeader.id === header.id && model.sortHeader.reverse]"><i class="fa fa-sort-desc fa-stack-1x"></i></span>
-                            </span>
-                            <!-- sort icon ends -->
-
-                        </span>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr ng-repeat="art in model.arts | orderBy: model.sortHeader.id : reverse : !reverse">
-                    <td ng-repeat="header in model.summaryHeaders">
-                        {{art[header.id]}}
-                    </td>
-                </tr>
-            </tbody>
-        </table>
     </div>
 </div>

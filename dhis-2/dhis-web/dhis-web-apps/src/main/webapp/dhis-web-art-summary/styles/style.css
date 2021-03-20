@@ -60,16 +60,113 @@ html, body {
     width: 236px;
 }
 
-#orgUnitTree {
-    height: 500px !important;
+/* ou tree start */
+.ou-search-left-bar {
+    margin-top: 30px;
+    padding: 2px;
 }
 
-#orgUnitTree a {
-    cursor: pointer !important;
+#searchOuTree {
+    max-height: 400px;
+    overflow: auto;
+    padding: 10px 0;
 }
+
+.tree-menu {
+    margin-left: -5px;
+    color: #000;
+    text-decoration: none;
+    font-size: 9pt;
+    background-color: white;
+    overflow: auto;
+    width: 100%;
+    height: 300px;
+    display: inline-block;
+    white-space: nowrap;
+}
+
+ul.tree, ul.tree ul {
+    list-style:none;
+    margin:0;
+    padding:0;
+}
+
+ul.tree ul {
+    margin-left:10px; /* indentation */
+    position:relative;
+}
+
+ul.tree ul:before {
+    content:"";
+    display:block;
+    width:0;
+    position:absolute;
+    top:0;
+    bottom:0;
+    left:0;
+    border-left:1px dotted;
+}
+
+ul.tree li {
+    margin:0;
+    padding:0 12px; /* indentation + 2 */
+    line-height:24px; /* default list item `line-height` */
+    position:relative;
+}
+
+ul.tree ul li.active-menu-item:before {
+    content:"";
+    display:block;
+    width:10px; /* same with indentation */
+    height:0;
+    border-top:1px dotted;
+    position:absolute;
+    top:12px;
+    left:0;
+}
+
+ul.tree ul li:last-child:before {
+    background:white; /* same with body background */
+    height:auto;
+    top:12px; /* (line-height/2) */
+    bottom:0;
+}
+
+.tree-menu-button {
+    background:transparent;
+    border:none;
+    outline:none;
+    cursor:pointer;
+}
+
+.selected-org-unit, .selected-menu {
+    font-weight: bold;
+    color: #FF8000;
+}
+
+.menu-spacer {
+    border-top:1px dotted;
+    width: 100%;
+}
+/* ou tree end */
 
 #ui-datepicker-div, .calendars-popup {
     z-index: 2000;
+}
+
+.custom-panel {
+    color: #000;
+    background-color: #BBD1EE;
+    border-color: #BBD1EE;
+    border-style: none;
+    border-radius: 0;
+    border-style: none !important;
+    border-radius: 0 !important;
+    webkit-box-shadow: none !important;
+    -moz-box-shadow: none !important;
+    -o-box-shadow: none !important;
+    box-shadow: none !important;
+    padding: 6px 0;
 }
 
 .menu-title  {

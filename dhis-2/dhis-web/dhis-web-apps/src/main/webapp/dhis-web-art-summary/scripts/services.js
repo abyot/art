@@ -321,6 +321,54 @@ var artSummaryServices = angular.module('artSummaryServices', ['ngResource'])
             }
             return promise;
         },
+        search: function( program, orgUnit, sortHeader, filterText, attributesById, dataElementsById, optionSetsById ){
+            var promise;
+            if( program.id && orgUnit.id ){
+                var order = 'order=created:desc';
+                if ( sortHeader && sortHeader.id ){
+                    order = 'order=' + sortHeader.id + ':' + sortHeader.direction;
+                }
+                if ( filterText ){
+                    order += filterText;
+                }
+
+                promise = $http.get(DHIS2URL + '/trackedEntityInstances/query.json?' + order + '&totalPages=false&ouMode=DESCENDANTS&ou=' + orgUnit.id + '&program=' + program.id).then(function (response) {
+                    var arts = {};
+                    if ( response.data && response.data.headers && response.data.rows ){
+                        var rows = response.data.rows, headers = response.data.headers;
+                        for (var i = 0; i<rows.length; i++) {
+                            var ou = '', ouName = '';
+                            for( var j=0; j<rows[i].length; j++){
+                                if ( headers[j].name === 'ou' ){
+                                    ou = rows[i][j];
+                                }
+                                else if ( headers[j].name === 'ouname' ){
+                                    ouName = rows[i][j];
+                                }
+                            }
+
+                            if ( arts[ou] ){
+                                arts[ou].size += 1;
+                            }
+                            else{
+                                arts[ou] = {
+                                    size: 1,
+                                    name: ouName
+                                }
+                            }
+                        }
+                    }
+
+                    if ( Object.keys( arts ).length > 0 ){
+                        return Object.keys( arts ).map(function(key) { return arts[key]; });
+                    }
+                    return [];
+                } ,function(error) {
+                    return null;
+                });
+            }
+            return promise;
+        },
         add: function( art ){
             var promise = $http.post(DHIS2URL + '/trackedEntityInstances.json?strategy=SYNC', art).then(function (response) {
                 return response.data;

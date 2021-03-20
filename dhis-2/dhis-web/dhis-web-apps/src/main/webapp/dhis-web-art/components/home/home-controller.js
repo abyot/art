@@ -202,7 +202,7 @@ art.controller('HomeController',
     };
 
     //fetch recommendations for selected orgunit and program combination
-    $scope.fetchRecommendations = function(){
+    $scope.fetchRecommendations = function( mode ){
         if( $scope.selectedOrgUnit && $scope.selectedOrgUnit.id && $scope.model.selectedProgram && $scope.model.selectedProgram.id ){
             //DESCENDANTS
             ArtService.getByProgramAndOu($scope.model.selectedProgram, $scope.selectedOrgUnit, $scope.model.sortHeader, $scope.filterParam, $scope.model.trackedEntityAttributes, $scope.model.dataElementsById, $scope.model.optionSets).then(function(arts){
@@ -288,6 +288,7 @@ art.controller('HomeController',
 
         $scope.filterParam = '';
         var filterExists = false;
+
         angular.forEach($scope.model.artHeaders, function(header){
             if ( $scope.filterText[header.id] ){
                 if ( header.optionSetValue ){
@@ -320,7 +321,7 @@ art.controller('HomeController',
         });
 
         if ( filterExists ){
-            $scope.fetchRecommendations();
+            $scope.fetchRecommendations('DESCENDANTS');
             $scope.model.displaySearchArt = false;
         }
         else{
